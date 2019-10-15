@@ -169,7 +169,7 @@ func (e *wmiExecer) Auth() error {
 
 	//user hash here!
 
-	hostname := toUnicodeS(e.config.clientHostname)
+	hostname := toUnicodeS("DESKTOP-65V3K18")
 	//domain here!
 	//username here!
 	domain := []byte(e.config.domain)

@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/c-sto/goInvokeWMIExec/pkg/wmiexec"
+	"github.com/c-sto/goWMIExec/pkg/wmiexec"
 )
 
 func main() {
