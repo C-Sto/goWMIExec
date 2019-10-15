@@ -184,10 +184,7 @@ func (e *wmiExecer) Auth() error {
 	}
 	username := []byte(uniuser)
 
-	//	mac := hmac.New(md5.New, ntlmChal)
-	//generate key1
-	//key1 := mac.Sum(append([]byte(toUnicodeS(strings.ToUpper(username))), domain...))
-	key1, err := NTLMV2Hash(e.config.password, string(e.config.hash), e.config.username, string(e.config.domain))
+	key1, err := NTLMV2Hash(e.config.password, string(e.config.hash), e.config.username, string(e.config.domain), e.logProper)
 	if err != nil {
 		return err
 	}
@@ -251,8 +248,7 @@ func (e *wmiExecer) Auth() error {
 	if recv3[2] == 3 {
 		pf := PacketFault{}
 		binary.Read(bytes.NewReader(recv3), binary.LittleEndian, &pf)
-		//log maybe
-		e.log.Error("Error: ", pf.StatusString(), pf.Status)
+		e.log.Error("Error: ", pf.StatusString(), " ", pf.Status)
 		return errors.New(pf.StatusString())
 	}
 
@@ -330,7 +326,7 @@ func (e *wmiExecer) RPCConnect() error {
 	}
 	username := []byte(uniuser)
 
-	key1, err := NTLMV2Hash(e.config.password, string(e.config.hash), e.config.username, string(e.config.domain))
+	key1, err := NTLMV2Hash(e.config.password, string(e.config.hash), e.config.username, string(e.config.domain), e.logProper)
 	if err != nil {
 		return err
 	}
@@ -447,7 +443,6 @@ func (e *wmiExecer) Exec(command string) error {
 		if resp[2] == 3 {
 			pf := PacketFault{}
 			binary.Read(bytes.NewReader(resp), binary.LittleEndian, &pf)
-			//log maybe
 			e.log.Error("Error: ", pf.StatusString(), pf.Status)
 			return errors.New(pf.StatusString())
 		}
@@ -796,7 +791,7 @@ func NTLMV2Response(hash, servChal, timestamp, targetInfo []byte) []byte {
 }
 
 //NTLMV2Hash returns the NTLMV2 hash provided a password or hash (if both are provided, the hash takes precidence), username and target info
-func NTLMV2Hash(password, hash, username, target string) ([]byte, error) {
+func NTLMV2Hash(password, hash, username, target string, log *zap.Logger) ([]byte, error) {
 	if hash == "" {
 		h := md4.New()
 		unipw, err := toUnicodeS(password)
@@ -806,7 +801,7 @@ func NTLMV2Hash(password, hash, username, target string) ([]byte, error) {
 		h.Write([]byte(unipw))
 		hash = hex.EncodeToString(h.Sum(nil))
 	}
-	fmt.Println("Authenticating with", hash)
+	log.Sugar().Info("Authenticating with the hash value: ", hash)
 	hashBytes, err := hex.DecodeString(hash)
 	if err != nil {
 		return nil, err
