@@ -266,12 +266,19 @@ func (e *wmiExecer) Auth() error {
 	}
 	targ := "\x07\x00" + unihn
 	tgtIndex := bytes.Index(recv3, []byte(targ))
-	portString := recv3[tgtIndex+len(unihn)+4 : tgtIndex+len(unihn)+14]
+	portString := recv3[tgtIndex+len(unihn)+2 : tgtIndex+len(unihn)+12]
 	s, err := unicode.UTF16(unicode.LittleEndian, unicode.IgnoreBOM).NewDecoder().String(string(portString))
 	if err != nil {
 		return err
 	}
 	portNum, err := strconv.Atoi(s)
+	if err != nil {
+		return err
+	}
+	if portNum == 0 {
+		e.log.Error("Got portNum 0.")
+		return fmt.Errorf("did not expect port number to be 0")
+	}
 
 	//meow... MS must have been smoking crack when this was developed
 	meowSig, _ := hex.DecodeString("4D454F570100000018AD09F36AD8D011A07500C04FB68820")
