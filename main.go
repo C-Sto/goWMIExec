@@ -31,6 +31,9 @@ func main() {
 		}
 	}
 
-	wmiexec.WMIExec(target, username, password, hash, domain, command, clientHost)
+	err := wmiexec.WMIExec(target, username, password, hash, domain, command, clientHost)
+	if err != nil {
+		panic(err)
+	}
 
 }

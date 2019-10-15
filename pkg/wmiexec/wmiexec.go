@@ -32,10 +32,14 @@ type WmiExecConfig struct {
 	logger  *zap.Logger
 }
 
-func NewExecConfig(username, password, hash, domain, target, clientHostname string, verbose bool, logger *zap.Logger) WmiExecConfig {
+func NewExecConfig(username, password, hash, domain, target, clientHostname string, verbose bool, logger *zap.Logger) (WmiExecConfig, error) {
+	unihn, err := toUnicodeS(clientHostname)
+	if err != nil {
+		return WmiExecConfig{}, err
+	}
 	r := WmiExecConfig{
 		username: username, password: password, hash: hash, domain: domain,
-		targetAddress: target, clientHostname: toUnicodeS(clientHostname),
+		targetAddress: target, clientHostname: unihn,
 		verbose: verbose,
 	}
 	if logger == nil {
@@ -46,12 +50,12 @@ func NewExecConfig(username, password, hash, domain, target, clientHostname stri
 		cfg.Encoding = "console"
 		logger, err = cfg.Build()
 		if err != nil {
-			panic(err)
+			return r, err
 		}
 		r.logger = logger
 	}
 
-	return r
+	return r, nil
 }
 
 type wmiExecer struct {
@@ -143,7 +147,7 @@ func (e *wmiExecer) Auth() error {
 	var err error
 	e.tcpClient, err = net.Dial("tcp", e.config.targetAddress)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	defer e.tcpClient.Close()
 
@@ -174,15 +178,18 @@ func (e *wmiExecer) Auth() error {
 	//domain here!
 	//username here!
 	domain := []byte(e.config.domain)
-
-	username := []byte(toUnicodeS(e.config.username))
+	uniuser, err := toUnicodeS(e.config.username)
+	if err != nil {
+		return err
+	}
+	username := []byte(uniuser)
 
 	//	mac := hmac.New(md5.New, ntlmChal)
 	//generate key1
 	//key1 := mac.Sum(append([]byte(toUnicodeS(strings.ToUpper(username))), domain...))
 	key1, err := NTLMV2Hash(e.config.password, string(e.config.hash), e.config.username, string(e.config.domain))
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	ntlmResp := NTLMV2Response(key1, ntlmChal, timebytes, deets)
@@ -226,7 +233,6 @@ func (e *wmiExecer) Auth() error {
 
 	packetAuth := NewPacketRPCAuth3(sspResp)
 	prepBytes2 := packetAuth.Bytes()
-	//recv2 := make([]byte, 2048)
 	e.tcpClient.Write(prepBytes2)
 
 	//lenRead, _ = tcpClient.Read(recv2)
@@ -247,19 +253,23 @@ func (e *wmiExecer) Auth() error {
 		binary.Read(bytes.NewReader(recv3), binary.LittleEndian, &pf)
 		//log maybe
 		e.log.Error("Error: ", pf.StatusString(), pf.Status)
-		return nil
+		return errors.New(pf.StatusString())
 	}
 
 	if recv3[2] == 2 {
 		e.log.Info("WMI Access possible!")
 	}
 
-	targ := "\x07\x00" + toUnicodeS(e.targetHostname+"[")
+	unihn, err := toUnicodeS(e.targetHostname + "[")
+	if err != nil {
+		return err
+	}
+	targ := "\x07\x00" + unihn
 	tgtIndex := bytes.Index(recv3, []byte(targ))
-	portString := recv3[tgtIndex+len(toUnicodeS(e.targetHostname))+4 : tgtIndex+len(toUnicodeS(e.targetHostname))+14]
+	portString := recv3[tgtIndex+len(unihn)+4 : tgtIndex+len(unihn)+14]
 	s, err := unicode.UTF16(unicode.LittleEndian, unicode.IgnoreBOM).NewDecoder().String(string(portString))
 	if err != nil {
-		panic(e)
+		return err
 	}
 	portNum, err := strconv.Atoi(s)
 
@@ -284,7 +294,7 @@ func (e *wmiExecer) RPCConnect() error {
 	e.tcpClient, err = net.Dial("tcp", fmt.Sprintf("%s:%d", e.config.targetAddress[:strings.Index(e.config.targetAddress, ":")], e.targetRPCPort))
 	if err != nil {
 		e.log.Error("Error: ", err.Error())
-		panic(err)
+		return err
 	}
 	//lol always open tcp
 
@@ -305,21 +315,17 @@ func (e *wmiExecer) RPCConnect() error {
 	ntlmChal := recv[index+24 : index+32]
 	deets := recv[index+56+int(nameLen) : index+56+int(nameLen)+int(tgtLen)]
 	timebytes := recv[lenRead-12 : lenRead-4]
-
-	//user hash here!
-
 	hostname := e.config.clientHostname
-	//domain here!
-	//username here!
 	domain := []byte(e.config.domain)
-	username := []byte(toUnicodeS(e.config.username))
+	uniuser, err := toUnicodeS(e.config.username)
+	if err != nil {
+		return err
+	}
+	username := []byte(uniuser)
 
-	//	mac := hmac.New(md5.New, ntlmChal)
-	//generate key1
-	//key1 := mac.Sum(append([]byte(toUnicodeS(strings.ToUpper(username))), domain...))
 	key1, err := NTLMV2Hash(e.config.password, string(e.config.hash), e.config.username, string(e.config.domain))
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	ntlmResp := NTLMV2Response(key1, ntlmChal, timebytes, deets)
@@ -412,7 +418,7 @@ func (e *wmiExecer) RPCConnect() error {
 		e.objUUID2 = recv3[oxidInd+16 : oxidInd+32]
 		e.stage = "AlterContext"
 	} else {
-		panic("not good")
+		return fmt.Errorf("Did not receive expected value. Wanted 2, got %d", recv3[2])
 	}
 
 	return nil
@@ -516,7 +522,11 @@ func (e *wmiExecer) Exec(command string) error {
 				wminameLen := uint32(len(e.targetHostname) + 14)
 				hnLenByte := make([]byte, 4)
 				binary.LittleEndian.PutUint32(hnLenByte, wminameLen)
-				wmiNameUni := []byte(toUnicodeS("\\\\" + e.targetHostname + "\\root\\cimv2"))
+				wmiNameStr, err := toUnicodeS("\\\\" + e.targetHostname + "\\root\\cimv2")
+				if err != nil {
+					return err
+				}
+				wmiNameUni := []byte(wmiNameStr)
 				wmiNameUni = append(wmiNameUni, 0, 0)
 
 				stubData = []byte{0x05, 0x00, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
@@ -590,7 +600,7 @@ func (e *wmiExecer) Exec(command string) error {
 
 			default:
 				if sequence < 8 {
-					panic("undefined behaviour")
+					return fmt.Errorf("Undefined behaviour in Exec Request. Expected sequence < 8, got %d", sequence)
 				}
 
 				sequence = 9
@@ -644,7 +654,7 @@ func (e *wmiExecer) Exec(command string) error {
 				stubData = append(stubData, commandBytes...)
 				stubData = append(stubData, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00)
 				if len(stubData) > 5500 {
-					panic("command too long")
+					return fmt.Errorf("Long request packet not yet implemented. Needed below 5500, got %d", len(stubData))
 				}
 				rqFlags = 0x83
 				nextStage = "Result"
@@ -674,7 +684,7 @@ func (e *wmiExecer) Exec(command string) error {
 			e.tcpClient.Write(wmiSend)
 
 			if reqSplit {
-				panic("Not yet implemented")
+				return fmt.Errorf("Long request packet not yet implemented. Should have errored earlier due to split requirement, stub data len is %d", len(stubData))
 			}
 
 			//reads 16 bytes
@@ -711,28 +721,39 @@ func (e *wmiExecer) Exec(command string) error {
 	return nil
 }
 
-func WMIExec(target, username, password, hash, domain, command, clientHostname string) {
-	cfg := NewExecConfig(username, password, hash, domain, target, clientHostname, true, nil)
-	execer := NewExecer(&cfg)
-	err := execer.Connect()
+func WMIExec(target, username, password, hash, domain, command, clientHostname string) error {
+	cfg, err := NewExecConfig(username, password, hash, domain, target, clientHostname, true, nil)
 	if err != nil {
-		return
+		return err
+	}
+	execer := NewExecer(&cfg)
+	err = execer.Connect()
+	if err != nil {
+		return err
 	}
 
 	err = execer.Auth()
 	if err != nil {
-		return
+		return err
 	}
 
-	err = execer.RPCConnect()
-	if err != nil {
-		panic(err)
+	if command != "" {
+		if execer.targetRPCPort == 0 {
+			execer.log.Error("RPC Port is 0, cannot connect")
+			return errors.New("RPC Port is 0, cannot connect")
+		}
+
+		err = execer.RPCConnect()
+		if err != nil {
+			return err
+		}
+		err = execer.Exec(command)
+		if err != nil {
+			return err
+		}
 	}
 
-	err = execer.Exec(command)
-	if err != nil {
-		panic(err)
-	}
+	return nil
 
 }
 
@@ -770,9 +791,12 @@ func NTLMV2Response(hash, servChal, timestamp, targetInfo []byte) []byte {
 //NTLMV2Hash returns the NTLMV2 hash provided a password or hash (if both are provided, the hash takes precidence), username and target info
 func NTLMV2Hash(password, hash, username, target string) ([]byte, error) {
 	if hash == "" {
-		//panic("Only works on hash for now")
 		h := md4.New()
-		h.Write([]byte(toUnicodeS(password)))
+		unipw, err := toUnicodeS(password)
+		if err != nil {
+			return nil, err
+		}
+		h.Write([]byte(unipw))
 		hash = hex.EncodeToString(h.Sum(nil))
 	}
 	fmt.Println("Authenticating with", hash)
@@ -781,14 +805,18 @@ func NTLMV2Hash(password, hash, username, target string) ([]byte, error) {
 		return nil, err
 	}
 	mac := hmac.New(md5.New, hashBytes)
-	mac.Write([]byte(toUnicodeS(strings.ToUpper(username) + target)))
+	idkman, err := toUnicodeS(strings.ToUpper(username) + target)
+	if err != nil {
+		return nil, err
+	}
+	mac.Write([]byte(idkman))
 	return mac.Sum(nil), nil
 }
 
-func toUnicodeS(s string) string {
+func toUnicodeS(s string) (string, error) {
 	s, e := unicode.UTF16(unicode.LittleEndian, unicode.IgnoreBOM).NewEncoder().String(s)
 	if e != nil {
-		panic(e)
+		return "", e
 	}
-	return s
+	return s, nil
 }
