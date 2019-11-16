@@ -25,10 +25,11 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		clientHost = strings.ToUpper(clientHost)
-		if len(clientHost) > 16 {
-			clientHost = clientHost[:15]
-		}
+	}
+
+	clientHost = strings.ToUpper(clientHost)
+	if len(clientHost) > 16 {
+		clientHost = clientHost[:15]
 	}
 
 	err := wmiexec.WMIExec(target, username, password, hash, domain, command, clientHost)

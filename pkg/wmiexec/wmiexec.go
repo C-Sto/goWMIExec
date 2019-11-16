@@ -127,18 +127,25 @@ func (e *wmiExecer) Connect() error {
 	e.log.Info("Successfully connected to host and sent an RPC request packet")
 	rsp := NewDCOMResponse(recv[:n])
 	resolved := NewDCOMOXIDResolver(rsp.Stub)
-	strs := make([]string, len(resolved.StringBindings))
+
+	e.log.Infof("Resolved names, all network string bindings for host:")
 	for _, x := range resolved.StringBindings {
-		strs = append(strs, string(x.NetworkAddr))
+		//decode for output to user (this should probably be in main... whatever)
+		dcoder := unicode.UTF16(unicode.LittleEndian, unicode.IgnoreBOM).NewDecoder()
+		b, er := dcoder.Bytes(x.NetworkAddr)
+		if er != nil {
+			e.log.Error(er.Error())
+			continue
+		}
+		e.log.Infof("\t%v", string(b)) //strs = append(strs, unicode.UTF16( // string(x.NetworkAddr))
 	}
-	e.log.Infof("Resolved names, all string bindings (utf16le): %v", strs)
 
 	b, err := unicode.UTF16(unicode.LittleEndian, unicode.IgnoreBOM).NewDecoder().Bytes(resolved.StringBindings[0].NetworkAddr)
 	if err != nil {
 		e.log.Error("Couldn't decode hostname from response")
 		return err
 	}
-	e.log.Info("Received hostname:", string(b))
+	e.log.Info("Using first value as target hostname: ", string(b))
 	e.targetHostname = string(b)
 	return nil
 }
@@ -238,7 +245,7 @@ func (e *wmiExecer) Auth() error {
 	rand.Seed(time.Now().UnixNano())
 	rand.Read(cause_id_bytes[:])
 
-	dcomThing := NewDCOMRemoteInstance(cause_id_bytes, hostname)
+	dcomThing := NewDCOMRemoteInstance(cause_id_bytes, e.config.targetAddress)
 	p := NewPacketRPCRequest(0x03, uint16(len(dcomThing.Bytes())), 0, 0, 3, 1, 4, nil)
 	prepBytes3 := p.Bytes()
 	recv3 := make([]byte, 2048)

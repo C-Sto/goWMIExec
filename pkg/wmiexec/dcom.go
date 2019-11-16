@@ -6,133 +6,199 @@ import (
 	"math"
 )
 
-type PacketDCOMRemoteInstance struct {
-	DCOMVersionMajor                                                                                                             uint16
-	DCOMVersionMinor                                                                                                             uint16
-	DCOMFlags                                                                                                                    uint32
-	DCOMReserved                                                                                                                 uint32
-	DCOMCausalityID                                                                                                              [16]byte
-	Unknown                                                                                                                      uint32
-	Unknown2                                                                                                                     uint32
-	Unknown3                                                                                                                     uint32
-	Unknown4                                                                                                                     uint32
-	IActPropertiesCntData                                                                                                        uint32
-	IActPropertiesOBJREFSignature                                                                                                uint32
-	IActPropertiesOBJREFFlags                                                                                                    uint32
-	IActPropertiesOBJREFIID                                                                                                      [16]byte
-	IActPropertiesCUSTOMOBJREFCLSID                                                                                              [16]byte
-	IActPropertiesCUSTOMOBJREFCBExtension                                                                                        uint32
-	IActPropertiesCUSTOMOBJREFSize                                                                                               uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesTotalSize                                                                            uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesReserved                                                                             uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesCustomHeaderCommonHeader                                                             uint64
-	IActPropertiesCUSTOMOBJREFIActPropertiesCustomHeaderPrivateHeader                                                            uint64
-	IActPropertiesCUSTOMOBJREFIActPropertiesCustomHeaderTotalSize                                                                uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesCustomHeaderCustomHeaderSize                                                         uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesCustomHeaderReserved                                                                 uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesDestinationContext                                                                   uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesNumActivationPropertyStructs                                                         uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesClsInfoClsid                                                                         [16]byte
-	IActPropertiesCUSTOMOBJREFIActPropertiesClsIdPtrReferentID                                                                   uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesClsSizesPtrReferentID                                                                uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesNULLPointer                                                                          uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesClsIdPtrMaxCount                                                                     uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesClsIdPtrPropertyStructGuid                                                           [16]byte
-	IActPropertiesCUSTOMOBJREFIActPropertiesClsIdPtrPropertyStructGuid2                                                          [16]byte
-	IActPropertiesCUSTOMOBJREFIActPropertiesClsIdPtrPropertyStructGuid3                                                          [16]byte
-	IActPropertiesCUSTOMOBJREFIActPropertiesClsIdPtrPropertyStructGuid4                                                          [16]byte
-	IActPropertiesCUSTOMOBJREFIActPropertiesClsIdPtrPropertyStructGuid5                                                          [16]byte
-	IActPropertiesCUSTOMOBJREFIActPropertiesClsIdPtrPropertyStructGuid6                                                          [16]byte
-	IActPropertiesCUSTOMOBJREFIActPropertiesClsSizesPtrMaxCount                                                                  uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesClsSizesPtrPropertyDataSize                                                          uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesClsSizesPtrPropertyDataSize2                                                         uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesClsSizesPtrPropertyDataSize3                                                         uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesClsSizesPtrPropertyDataSize4                                                         uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesClsSizesPtrPropertyDataSize5                                                         uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesClsSizesPtrPropertyDataSize6                                                         uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesSpecialSystemPropertiesCommonHeader                                        uint64
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesSpecialSystemPropertiesPrivateHeader                                       uint64
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesSpecialSystemPropertiesSessionID                                           uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesSpecialSystemPropertiesRemoteThisSessionID                                 uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesSpecialSystemPropertiesClientImpersonating                                 uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesSpecialSystemPropertiesPartitionIDPresent                                  uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesSpecialSystemPropertiesDefaultAuthnLevel                                   uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesSpecialSystemPropertiesPartitionGuid                                       [16]byte
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesSpecialSystemPropertiesProcessRequestFlags                                 uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesSpecialSystemPropertiesOriginalClassContext                                uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesSpecialSystemPropertiesFlags                                               uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesSpecialSystemPropertiesReserved                                            [32]byte // = 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesSpecialSystemPropertiesUnusedBuffer                                        uint64
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesInstantiationInfoCommonHeader                                              uint64
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesInstantiationInfoPrivateHeader                                             uint64
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesInstantiationInfoInstantiatedObjectClsId                                   [16]byte
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesInstantiationInfoClassContext                                              uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesInstantiationInfoActivationFlags                                           uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesInstantiationInfoFlagsSurrogate                                            uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesInstantiationInfoInterfaceIdCount                                          uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesInstantiationInfoInstantiationFlag                                         uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesInstantiationInterfaceIdsPtr                                               uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesInstantiationEntirePropertySize                                            uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesInstantiationVersionMajor                                                  uint16
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesInstantiationVersionMinor                                                  uint16
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesInstantiationInterfaceIdsPtrMaxCount                                       uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesInstantiationInterfaceIds                                                  [16]byte
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesInstantiationInterfaceIdsUnusedBuffer                                      uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesActivationContextInfoCommonHeader                                          uint64
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesActivationContextInfoPrivateHeader                                         uint64
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesActivationContextInfoClientOk                                              uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesActivationContextInfoReserved                                              uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesActivationContextInfoReserved2                                             uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesActivationContextInfoReserved3                                             uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesActivationContextInfoClientPtrReferentID                                   uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesActivationContextInfoNULLPtr                                               uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesActivationContextInfoClientPtrClientContextUnknown                         uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesActivationContextInfoClientPtrClientContextCntData                         uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesActivationContextInfoClientPtrClientContextOBJREFSignature                 uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesActivationContextInfoClientPtrClientContextOBJREFFlags                     uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesActivationContextInfoClientPtrClientContextOBJREFIID                       [16]byte
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesActivationContextInfoClientPtrClientContextOBJREFCUSTOMOBJREFCLSID         [16]byte
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesActivationContextInfoClientPtrClientContextOBJREFCUSTOMOBJREFCBExtension   uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesActivationContextInfoClientPtrClientContextOBJREFCUSTOMOBJREFSize          uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesActivationContextInfoUnusedBuffer                                          [48]byte // = 0x01, 0x00, 0x01, 0x00, 0x63, 0x2c, 0x80, 0x2a, 0xa5, 0xd2, 0xaf, 0xdd, 0x4d, 0xc4, 0xbb, 0x37, 0x4d, 0x37, 0x76, 0xd7, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesSecurityInfoCommonHeader                                                   uint64
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesSecurityInfoPrivateHeader                                                  uint64 //", packet_private_header);
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesSecurityInfoAuthenticationFlags                                            uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesSecurityInfoServerInfoPtrReferentID                                        uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesSecurityInfoNULLPtr                                                        uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesSecurityInfoServerInfoServerInfoReserved                                   uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesSecurityInfoServerInfoServerInfoNameReferentID                             uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesSecurityInfoServerInfoServerInfoNULLPtr                                    uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesSecurityInfoServerInfoServerInfoReserved2                                  uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesSecurityInfoServerInfoServerInfoNameMaxCount                               uint32 //", packet_target_length);
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesSecurityInfoServerInfoServerInfoNameOffset                                 uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesSecurityInfoServerInfoServerInfoNameActualCount                            uint32   //", packet_target_length);
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesSecurityInfoServerInfoServerInfoNameString                                 [32]byte // uint32//uint", packet_target_unicode);
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesLocationInfoCommonHeader                                                   uint64
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesLocationInfoPrivateHeader                                                  uint64
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesLocationInfoNULLPtr                                                        uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesLocationInfoProcessID                                                      uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesLocationInfoApartmentID                                                    uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesLocationInfoContextID                                                      uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesScmRequestInfoCommonHeader                                                 uint64
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesScmRequestInfoPrivateHeader                                                uint64
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesScmRequestInfoNULLPtr                                                      uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesScmRequestInfoRemoteRequestPtrReferentID                                   uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesScmRequestInfoRemoteRequestPtrRemoteRequestClientImpersonationLevel        uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesScmRequestInfoRemoteRequestPtrRemoteRequestNumProtocolSequences            uint16
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesScmRequestInfoRemoteRequestPtrRemoteRequestUnknown                         uint16
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesScmRequestInfoRemoteRequestPtrRemoteRequestProtocolSeqsArrayPtrReferentID  uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesScmRequestInfoRemoteRequestPtrRemoteRequestProtocolSeqsArrayPtrMaxCount    uint32
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesScmRequestInfoRemoteRequestPtrRemoteRequestProtocolSeqsArrayPtrProtocolSeq uint16
-	IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesScmRequestInfoUnusedBuffer                                                 [6]byte // = 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+type DCOMORPCThis struct {
+	VersionMajor uint16
+	VersionMinor uint16
+	Flags        uint32
+	Reserved     uint32
+	CausalityID  [16]byte
+	Unknown      uint32
+}
 
+type IActProperties struct {
+	CntData uint32
+	OBJREF  OBJREF
+}
+
+type OBJREF struct {
+	Signature    uint32
+	Flags        uint32
+	IID          [16]byte
+	CUSTOMOBJREF CUSTOMOBJREF
+}
+
+type CUSTOMOBJREF struct {
+	CLSID          [16]byte
+	CBExtension    uint32
+	Size           uint32
+	IActProperties IActProperties2
+}
+
+//idk man, I'm doing this from the wireshark dissection, not the standard ok
+type IActProperties2 struct {
+	TotalSize    uint32
+	Reserved     uint32
+	CustomHeader CustomHeader
+	Properties   IAct2Properties
+}
+
+type CustomHeader struct {
+	CommonHeader                  uint64
+	PrivateHeader                 uint64
+	TotalSize                     uint32
+	CustomHeaderSize              uint32
+	Reserved                      uint32
+	DestinationContext            uint32
+	NumActivationProptertyStructs uint32
+	ClassInfoClsid                [16]byte
+	ClsId                         ClsId
+}
+
+type ClsId struct {
+	PtrReferentID             uint32
+	PtrSizesReferentID        uint32
+	NULLPointer               uint32
+	PtrMaxCount               uint32
+	PtrPropertyStructGUID     [16]byte
+	PtrPropertyStructGUID2    [16]byte
+	PtrPropertyStructGUID3    [16]byte
+	PtrPropertyStructGUID4    [16]byte
+	PtrPropertyStructGUID5    [16]byte
+	PtrPropertyStructGUID6    [16]byte
+	SizesPtrMaxCount          uint32
+	SizesPtrPropertyDataSize  uint32
+	SizesPtrPropertyDataSize2 uint32
+	SizesPtrPropertyDataSize3 uint32
+	SizesPtrPropertyDataSize4 uint32
+	SizesPtrPropertyDataSize5 uint32
+	SizesPtrPropertyDataSize6 uint32
+}
+
+type IAct2Properties struct {
+	SpecialSystemProperties SpecialSystemProperties
+	InstantiationInfo       InstantiationInfo
+	ActivationContextInfo   ActivationContextInfo
+	SecurityInfo            SecurityInfo
+	LocationInfo            LocationInfo
+	ScmRequestInfo          ScmRequestInfo
+}
+
+type SpecialSystemProperties struct {
+	CommonHeader         uint64
+	PrivateHeader        uint64
+	SessionID            uint32
+	RemoteThisSessionID  uint32
+	ClientImpersonating  uint32
+	PartitionIDPresent   uint32
+	DefaultAuthnLevel    uint32
+	PartitionGUID        [16]byte
+	ProcessRequestFlags  uint32
+	OriginalClassContext uint32
+	Flags                uint32
+	Reserved             [32]byte
+	UnusedBuffer         uint64
+}
+
+type InstantiationInfo struct {
+	CommonHeader            uint64
+	PrivateHeader           uint64
+	InstantiatedObjectClsId [16]byte
+	ClassContext,
+	ActivationFlags,
+	FlagsSurrogate,
+	InterfaceIdCount,
+	InstantiationFlag,
+	InterfaceIdsPtr,
+	EntirePropertySize uint32
+	VersionMajor, VersionMinor uint16
+	InterfaceIdsMaxCount       uint32
+	InterfaceIds               [16]byte
+	UnusedBuffer               uint32
+}
+
+type ActivationContextInfo struct {
+	CommonHeader                                        uint64
+	PrivateHeader                                       uint64
+	ClientOk                                            uint32
+	Reserved                                            uint32
+	Reserved2                                           uint32
+	Reserved3                                           uint32
+	ClientPtrReferentID                                 uint32
+	NULLPtr                                             uint32
+	ClientPtrClientContextUnknown                       uint32
+	ClientPtrClientContextCntData                       uint32
+	ClientPtrClientContextOBJREFSignature               uint32
+	ClientPtrClientContextOBJREFFlags                   uint32
+	ClientPtrClientContextOBJREFIID                     [16]byte
+	ClientPtrClientContextOBJREFCUSTOMOBJREFCLSID       [16]byte
+	ClientPtrClientContextOBJREFCUSTOMOBJREFCBExtension uint32
+	ClientPtrClientContextOBJREFCUSTOMOBJREFSize        uint32
+	UnusedBuffer                                        [48]byte
+}
+
+type SecurityInfo struct {
+	CommonHeader                        uint64
+	PrivateHeader                       uint64 //", packet_private_header);
+	AuthenticationFlags                 uint32
+	ServerInfoPtrReferentID             uint32
+	NULLPtr                             uint32
+	ServerInfoServerInfoReserved        uint32
+	ServerInfoServerInfoNameReferentID  uint32
+	ServerInfoServerInfoNULLPtr         uint32
+	ServerInfoServerInfoReserved2       uint32
+	ServerInfoServerInfoNameMaxCount    uint32 //", packet_target_length);
+	ServerInfoServerInfoNameOffset      uint32
+	ServerInfoServerInfoNameActualCount uint32 //", packet_target_length);
+	ServerInfoServerInfoNameString      []byte // uint32//uint", packet_target_unicode);
+
+}
+
+type LocationInfo struct {
+	CommonHeader  uint64
+	PrivateHeader uint64
+	NULLPtr       uint32
+	ProcessID     uint32
+	ApartmentID   uint32
+	ContextID     uint32
+}
+
+type ScmRequestInfo struct {
+	CommonHeader                                                 uint64
+	PrivateHeader                                                uint64
+	NULLPtr                                                      uint32
+	RemoteRequestPtrReferentID                                   uint32
+	RemoteRequestPtrRemoteRequestClientImpersonationLevel        uint32
+	RemoteRequestPtrRemoteRequestNumProtocolSequences            uint16
+	RemoteRequestPtrRemoteRequestUnknown                         uint16
+	RemoteRequestPtrRemoteRequestProtocolSeqsArrayPtrReferentID  uint32
+	RemoteRequestPtrRemoteRequestProtocolSeqsArrayPtrMaxCount    uint32
+	RemoteRequestPtrRemoteRequestProtocolSeqsArrayPtrProtocolSeq uint16
+	UnusedBuffer                                                 [6]byte // = 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+}
+
+type PacketDCOMRemoteInstance struct {
+	/*
+		DCOMVersionMajor                                                                                                             uint16
+		DCOMVersionMinor                                                                                                             uint16
+		DCOMFlags                                                                                                                    uint32
+		DCOMReserved                                                                                                                 uint32
+		DCOMCausalityID                                                                                                              [16]byte
+		Unknown                                                                                                                      uint32
+	*/
+	DCOMORPCThis   DCOMORPCThis
+	Unknown2       uint32
+	Unknown3       uint32
+	Unknown4       uint32
+	IActProperties IActProperties
 }
 
 func NewDCOMRemoteInstance(causality [16]byte, target string) PacketDCOMRemoteInstance {
 	r := PacketDCOMRemoteInstance{}
 
-	targetB := []byte(target)
-	targetL := uint32(len(targetB)/2) + 1
+	targetU, _ := toUnicodeS(target)
+	targetL := uint32(len(target)) + 1
+
+	targetB := []byte(targetU)
 
 	b := uint32(math.Trunc(float64(len(targetB))/8+1)*8 - float64(len(targetB)))
 	nulls := make([]byte, b)
@@ -144,132 +210,190 @@ func NewDCOMRemoteInstance(causality [16]byte, target string) PacketDCOMRemoteIn
 	privHeader := uint64(len(targetB) + 40)
 	propDataSize := uint32(len(targetB) + 56)
 
-	r.DCOMVersionMajor = 0x05
-	r.DCOMVersionMinor = 0x07
-	r.DCOMFlags = 0x01
-	r.DCOMReserved = 0x00
-	r.DCOMCausalityID = causality // packet_causality_ID);
-	r.Unknown = 0x00
+	r.DCOMORPCThis.VersionMajor = 0x05
+	r.DCOMORPCThis.VersionMinor = 0x07
+	r.DCOMORPCThis.Flags = 0x01
+	r.DCOMORPCThis.Reserved = 0x00
+	r.DCOMORPCThis.CausalityID = causality // packet_causality_ID);
+	r.DCOMORPCThis.Unknown = 0x00
 	r.Unknown2 = 0x00
 	r.Unknown3 = 0x020000
-	r.Unknown4 = targetCnt                       //", packet_cntdata);
-	r.IActPropertiesCntData = targetCnt          //", packet_cntdata);
-	r.IActPropertiesOBJREFSignature = 0x574f454d // 0x4d, 0x45, 0x4f, 0x57
-	r.IActPropertiesOBJREFFlags = 0x04
-	r.IActPropertiesOBJREFIID = [16]byte{0xa2, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46}
-	r.IActPropertiesCUSTOMOBJREFCLSID = [16]byte{0x38, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46}
-	r.IActPropertiesCUSTOMOBJREFCBExtension = 0x00
-	r.IActPropertiesCUSTOMOBJREFSize = pktSize                     //", packet_size);
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesTotalSize = pktTotal //", packet_total_size);
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesReserved = 0x00
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesCustomHeaderCommonHeader = 0xcccccccc00081001 // 0x01, 0x10, 0x08, 0x00, 0xcc, 0xcc, 0xcc, 0xcc
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesCustomHeaderPrivateHeader = 0xb0              // 0xb0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesCustomHeaderTotalSize = pktTotal              //", packet_total_size);
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesCustomHeaderCustomHeaderSize = 0xc0
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesCustomHeaderReserved = 0x00
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesDestinationContext = 0x02
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesNumActivationPropertyStructs = 0x06
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesClsInfoClsid = [16]byte{} // 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesClsIdPtrReferentID = 0x0200
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesClsSizesPtrReferentID = 0x00020004 //0x04, 0x00, 0x02, 0x00
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesNULLPointer = 0x00
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesClsIdPtrMaxCount = 0x06
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesClsIdPtrPropertyStructGuid = [16]byte{0xb9, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46}
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesClsIdPtrPropertyStructGuid2 = [16]byte{0xab, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46}
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesClsIdPtrPropertyStructGuid3 = [16]byte{0xa5, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46}
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesClsIdPtrPropertyStructGuid4 = [16]byte{0xa6, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46}
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesClsIdPtrPropertyStructGuid5 = [16]byte{0xa4, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46}
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesClsIdPtrPropertyStructGuid6 = [16]byte{0xaa, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46}
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesClsSizesPtrMaxCount = 0x06
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesClsSizesPtrPropertyDataSize = 0x68
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesClsSizesPtrPropertyDataSize2 = 0x58
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesClsSizesPtrPropertyDataSize3 = 0x90
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesClsSizesPtrPropertyDataSize4 = propDataSize //", packet_property_data_size);
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesClsSizesPtrPropertyDataSize5 = 0x20
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesClsSizesPtrPropertyDataSize6 = 0x30
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesSpecialSystemPropertiesCommonHeader = 0xcccccccc00081001 // 0x01, 0x10, 0x08, 0x00, 0xcc, 0xcc, 0xcc, 0xcc
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesSpecialSystemPropertiesPrivateHeader = 0x58
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesSpecialSystemPropertiesSessionID = 0xffffffff
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesSpecialSystemPropertiesRemoteThisSessionID = 0x00
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesSpecialSystemPropertiesClientImpersonating = 0x00
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesSpecialSystemPropertiesPartitionIDPresent = 0x00
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesSpecialSystemPropertiesDefaultAuthnLevel = 0x02
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesSpecialSystemPropertiesPartitionGuid = [16]byte{} // 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesSpecialSystemPropertiesProcessRequestFlags = 0x00
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesSpecialSystemPropertiesOriginalClassContext = 0x14
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesSpecialSystemPropertiesFlags = 0x02
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesSpecialSystemPropertiesReserved = [32]byte{} // 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesSpecialSystemPropertiesUnusedBuffer = 0x00
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesInstantiationInfoCommonHeader = 0xcccccccc00081001 //0x01, 0x10, 0x08, 0x00, 0xcc, 0xcc, 0xcc, 0xcc
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesInstantiationInfoPrivateHeader = 0x48
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesInstantiationInfoInstantiatedObjectClsId = [16]byte{0x5e, 0xf0, 0xc3, 0x8b, 0x6b, 0xd8, 0xd0, 0x11, 0xa0, 0x75, 0x00, 0xc0, 0x4f, 0xb6, 0x88, 0x20}
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesInstantiationInfoClassContext = 0x14
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesInstantiationInfoActivationFlags = 0x00
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesInstantiationInfoFlagsSurrogate = 0x00
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesInstantiationInfoInterfaceIdCount = 0x01
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesInstantiationInfoInstantiationFlag = 0x00
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesInstantiationInterfaceIdsPtr = 0x0200
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesInstantiationEntirePropertySize = 0x58
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesInstantiationVersionMajor = 0x05
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesInstantiationVersionMinor = 0x07
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesInstantiationInterfaceIdsPtrMaxCount = 0x01
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesInstantiationInterfaceIds = [16]byte{0x18, 0xad, 0x09, 0xf3, 0x6a, 0xd8, 0xd0, 0x11, 0xa0, 0x75, 0x00, 0xc0, 0x4f, 0xb6, 0x88, 0x20}
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesInstantiationInterfaceIdsUnusedBuffer = 0x00
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesActivationContextInfoCommonHeader = 0xcccccccc00081001 // 0x01, 0x10, 0x08, 0x00, 0xcc, 0xcc, 0xcc, 0xcc
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesActivationContextInfoPrivateHeader = 0x80
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesActivationContextInfoClientOk = 0x00
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesActivationContextInfoReserved = 0x00
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesActivationContextInfoReserved2 = 0x00
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesActivationContextInfoReserved3 = 0x00
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesActivationContextInfoClientPtrReferentID = 0x0200
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesActivationContextInfoNULLPtr = 0x00
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesActivationContextInfoClientPtrClientContextUnknown = 0x60
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesActivationContextInfoClientPtrClientContextCntData = 0x60
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesActivationContextInfoClientPtrClientContextOBJREFSignature = 0x574f454d // 0x4d, 0x45, 0x4f, 0x57
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesActivationContextInfoClientPtrClientContextOBJREFFlags = 0x04
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesActivationContextInfoClientPtrClientContextOBJREFIID = [16]byte{0xc0, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46}
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesActivationContextInfoClientPtrClientContextOBJREFCUSTOMOBJREFCLSID = [16]byte{0x3b, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46}
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesActivationContextInfoClientPtrClientContextOBJREFCUSTOMOBJREFCBExtension = 0x00
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesActivationContextInfoClientPtrClientContextOBJREFCUSTOMOBJREFSize = 0x30
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesActivationContextInfoUnusedBuffer = [48]byte{0x01, 0x00, 0x01, 0x00, 0x63, 0x2c, 0x80, 0x2a, 0xa5, 0xd2, 0xaf, 0xdd, 0x4d, 0xc4, 0xbb, 0x37, 0x4d, 0x37, 0x76, 0xd7, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00}
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesSecurityInfoCommonHeader = 0xcccccccc00081001 // 0x01, 0x10, 0x08, 0x00, 0xcc, 0xcc, 0xcc, 0xcc
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesSecurityInfoPrivateHeader = privHeader        //", packet_private_header);
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesSecurityInfoAuthenticationFlags = 0x00
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesSecurityInfoServerInfoPtrReferentID = 0x0200
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesSecurityInfoNULLPtr = 0x00
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesSecurityInfoServerInfoServerInfoReserved = 0x00
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesSecurityInfoServerInfoServerInfoNameReferentID = 0x00020004 // 0x04, 0x00, 0x02, 0x00
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesSecurityInfoServerInfoServerInfoNULLPtr = 0x00
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesSecurityInfoServerInfoServerInfoReserved2 = 0x00
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesSecurityInfoServerInfoServerInfoNameMaxCount = targetL // ", packet_target_length);
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesSecurityInfoServerInfoServerInfoNameOffset = 0x00
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesSecurityInfoServerInfoServerInfoNameActualCount = targetL //", packet_target_length);
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesSecurityInfoServerInfoServerInfoNameString = [32]byte{}   //", packet_target_unicode);
-	copy(r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesSecurityInfoServerInfoServerInfoNameString[:], targetB)
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesLocationInfoCommonHeader = 0xcccccccc00081001  //0x01, 0x10, 0x08, 0x00, 0xcc, 0xcc, 0xcc, 0xcc
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesLocationInfoPrivateHeader = 0xcccccccc00081001 //0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesLocationInfoNULLPtr = 0x00
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesLocationInfoProcessID = 0x00
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesLocationInfoApartmentID = 0x00
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesLocationInfoContextID = 0x00
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesScmRequestInfoCommonHeader = 0xcccccccc00081001 // 0x01, 0x10, 0x08, 0x00, 0xcc, 0xcc, 0xcc, 0xcc
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesScmRequestInfoPrivateHeader = 0x20
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesScmRequestInfoNULLPtr = 0x00
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesScmRequestInfoRemoteRequestPtrReferentID = 0x0200
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesScmRequestInfoRemoteRequestPtrRemoteRequestClientImpersonationLevel = 0x02
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesScmRequestInfoRemoteRequestPtrRemoteRequestNumProtocolSequences = 0x01
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesScmRequestInfoRemoteRequestPtrRemoteRequestUnknown = 0x00
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesScmRequestInfoRemoteRequestPtrRemoteRequestProtocolSeqsArrayPtrReferentID = 0x00020004 // 0x04, 0x00, 0x02, 0x00
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesScmRequestInfoRemoteRequestPtrRemoteRequestProtocolSeqsArrayPtrMaxCount = 0x01
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesScmRequestInfoRemoteRequestPtrRemoteRequestProtocolSeqsArrayPtrProtocolSeq = 0x07
-	r.IActPropertiesCUSTOMOBJREFIActPropertiesPropertiesScmRequestInfoUnusedBuffer = [6]byte{}
+	r.Unknown4 = targetCnt //", packet_cntdata);
 
+	r.IActProperties.CntData = targetCnt           //", packet_cntdata);
+	r.IActProperties.OBJREF.Signature = 0x574f454d // 0x4d, 0x45, 0x4f, 0x57
+	r.IActProperties.OBJREF.Flags = 0x04
+	r.IActProperties.OBJREF.IID = [16]byte{0xa2, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46}
+	r.IActProperties.OBJREF.CUSTOMOBJREF.CLSID = [16]byte{0x38, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46}
+	r.IActProperties.OBJREF.CUSTOMOBJREF.CBExtension = 0x00
+	r.IActProperties.OBJREF.CUSTOMOBJREF.Size = pktSize                      //", packet_size);
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.TotalSize = pktTotal //", packet_total_size);
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Reserved = 0x00
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.CommonHeader = 0xcccccccc00081001 // 0x01, 0x10, 0x08, 0x00, 0xcc, 0xcc, 0xcc, 0xcc
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.PrivateHeader = 0xb0              // 0xb0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.TotalSize = pktTotal              //", packet_total_size);
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.CustomHeaderSize = 0xc0
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.Reserved = 0x00
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.DestinationContext = 0x02
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.NumActivationProptertyStructs = 0x06
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.ClassInfoClsid = [16]byte{} // 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.ClsId.PtrReferentID = 0x020000
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.ClsId.PtrSizesReferentID = 0x00020004 //0x04, 0x00, 0x02, 0x00
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.ClsId.NULLPointer = 0x00
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.ClsId.PtrMaxCount = 0x06
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.ClsId.PtrPropertyStructGUID = [16]byte{0xb9, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46}
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.ClsId.PtrPropertyStructGUID2 = [16]byte{0xab, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46}
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.ClsId.PtrPropertyStructGUID3 = [16]byte{0xa5, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46}
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.ClsId.PtrPropertyStructGUID4 = [16]byte{0xa6, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46}
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.ClsId.PtrPropertyStructGUID5 = [16]byte{0xa4, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46}
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.ClsId.PtrPropertyStructGUID6 = [16]byte{0xaa, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46}
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.ClsId.SizesPtrMaxCount = 0x06
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.ClsId.SizesPtrPropertyDataSize = 0x68
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.ClsId.SizesPtrPropertyDataSize2 = 0x58
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.ClsId.SizesPtrPropertyDataSize3 = 0x90
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.ClsId.SizesPtrPropertyDataSize4 = propDataSize //", packet_property_data_size);
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.ClsId.SizesPtrPropertyDataSize5 = 0x20
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.ClsId.SizesPtrPropertyDataSize6 = 0x30
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.SpecialSystemProperties.CommonHeader = 0xcccccccc00081001 // 0x01, 0x10, 0x08, 0x00, 0xcc, 0xcc, 0xcc, 0xcc
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.SpecialSystemProperties.PrivateHeader = 0x58
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.SpecialSystemProperties.SessionID = 0xffffffff
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.SpecialSystemProperties.RemoteThisSessionID = 0x00
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.SpecialSystemProperties.ClientImpersonating = 0x00
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.SpecialSystemProperties.PartitionIDPresent = 0x00
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.SpecialSystemProperties.DefaultAuthnLevel = 0x02
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.SpecialSystemProperties.PartitionGUID = [16]byte{} // 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.SpecialSystemProperties.ProcessRequestFlags = 0x00
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.SpecialSystemProperties.OriginalClassContext = 0x14
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.SpecialSystemProperties.Flags = 0x02
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.SpecialSystemProperties.Reserved = [32]byte{} // 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.SpecialSystemProperties.UnusedBuffer = 0x00
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.InstantiationInfo.CommonHeader = 0xcccccccc00081001 //0x01, 0x10, 0x08, 0x00, 0xcc, 0xcc, 0xcc, 0xcc
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.InstantiationInfo.PrivateHeader = 0x48
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.InstantiationInfo.InstantiatedObjectClsId = [16]byte{0x5e, 0xf0, 0xc3, 0x8b, 0x6b, 0xd8, 0xd0, 0x11, 0xa0, 0x75, 0x00, 0xc0, 0x4f, 0xb6, 0x88, 0x20}
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.InstantiationInfo.ClassContext = 0x14
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.InstantiationInfo.ActivationFlags = 0x00
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.InstantiationInfo.FlagsSurrogate = 0x00
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.InstantiationInfo.InterfaceIdCount = 0x01
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.InstantiationInfo.InstantiationFlag = 0x00
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.InstantiationInfo.InterfaceIdsPtr = 0x0200
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.InstantiationInfo.EntirePropertySize = 0x58
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.InstantiationInfo.VersionMajor = 0x05
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.InstantiationInfo.VersionMinor = 0x07
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.InstantiationInfo.InterfaceIdsMaxCount = 0x01
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.InstantiationInfo.InterfaceIds = [16]byte{0x18, 0xad, 0x09, 0xf3, 0x6a, 0xd8, 0xd0, 0x11, 0xa0, 0x75, 0x00, 0xc0, 0x4f, 0xb6, 0x88, 0x20}
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.InstantiationInfo.UnusedBuffer = 0x00
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.ActivationContextInfo.CommonHeader = 0xcccccccc00081001 // 0x01, 0x10, 0x08, 0x00, 0xcc, 0xcc, 0xcc, 0xcc
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.ActivationContextInfo.PrivateHeader = 0x80
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.ActivationContextInfo.ClientOk = 0x00
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.ActivationContextInfo.Reserved = 0x00
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.ActivationContextInfo.Reserved2 = 0x00
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.ActivationContextInfo.Reserved3 = 0x00
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.ActivationContextInfo.ClientPtrReferentID = 0x0200
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.ActivationContextInfo.NULLPtr = 0x00
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.ActivationContextInfo.ClientPtrClientContextUnknown = 0x60
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.ActivationContextInfo.ClientPtrClientContextCntData = 0x60
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.ActivationContextInfo.ClientPtrClientContextOBJREFSignature = 0x574f454d // 0x4d, 0x45, 0x4f, 0x57
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.ActivationContextInfo.ClientPtrClientContextOBJREFFlags = 0x04
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.ActivationContextInfo.ClientPtrClientContextOBJREFIID = [16]byte{0xc0, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46}
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.ActivationContextInfo.ClientPtrClientContextOBJREFCUSTOMOBJREFCLSID = [16]byte{0x3b, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46}
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.ActivationContextInfo.ClientPtrClientContextOBJREFCUSTOMOBJREFCBExtension = 0x00
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.ActivationContextInfo.ClientPtrClientContextOBJREFCUSTOMOBJREFSize = 0x30
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.ActivationContextInfo.UnusedBuffer = [48]byte{0x01, 0x00, 0x01, 0x00, 0x63, 0x2c, 0x80, 0x2a, 0xa5, 0xd2, 0xaf, 0xdd, 0x4d, 0xc4, 0xbb, 0x37, 0x4d, 0x37, 0x76, 0xd7, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00}
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.SecurityInfo.CommonHeader = 0xcccccccc00081001 // 0x01, 0x10, 0x08, 0x00, 0xcc, 0xcc, 0xcc, 0xcc
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.SecurityInfo.PrivateHeader = privHeader        //", packet_private_header);
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.SecurityInfo.AuthenticationFlags = 0x00
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.SecurityInfo.ServerInfoPtrReferentID = 0x0200
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.SecurityInfo.NULLPtr = 0x00
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.SecurityInfo.ServerInfoServerInfoReserved = 0x00
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.SecurityInfo.ServerInfoServerInfoNameReferentID = 0x00020004 // 0x04, 0x00, 0x02, 0x00
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.SecurityInfo.ServerInfoServerInfoNULLPtr = 0x00
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.SecurityInfo.ServerInfoServerInfoReserved2 = 0x00
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.SecurityInfo.ServerInfoServerInfoNameMaxCount = targetL // ", packet_target_length);
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.SecurityInfo.ServerInfoServerInfoNameOffset = 0x00
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.SecurityInfo.ServerInfoServerInfoNameActualCount = targetL               //", packet_target_length);
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.SecurityInfo.ServerInfoServerInfoNameString = make([]byte, len(targetB)) //", packet_target_unicode);
+	copy(r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.SecurityInfo.ServerInfoServerInfoNameString[:], targetB)
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.LocationInfo.CommonHeader = 0xcccccccc00081001  //0x01, 0x10, 0x08, 0x00, 0xcc, 0xcc, 0xcc, 0xcc
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.LocationInfo.PrivateHeader = 0xcccccccc00081001 //0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.LocationInfo.NULLPtr = 0x00
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.LocationInfo.ProcessID = 0x00
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.LocationInfo.ApartmentID = 0x00
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.LocationInfo.ContextID = 0x00
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.ScmRequestInfo.CommonHeader = 0xcccccccc00081001 // 0x01, 0x10, 0x08, 0x00, 0xcc, 0xcc, 0xcc, 0xcc
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.ScmRequestInfo.PrivateHeader = 0x20
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.ScmRequestInfo.NULLPtr = 0x00
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.ScmRequestInfo.RemoteRequestPtrReferentID = 0x0200
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.ScmRequestInfo.RemoteRequestPtrRemoteRequestClientImpersonationLevel = 0x02
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.ScmRequestInfo.RemoteRequestPtrRemoteRequestNumProtocolSequences = 0x01
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.ScmRequestInfo.RemoteRequestPtrRemoteRequestUnknown = 0x00
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.ScmRequestInfo.RemoteRequestPtrRemoteRequestProtocolSeqsArrayPtrReferentID = 0x00020004 // 0x04, 0x00, 0x02, 0x00
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.ScmRequestInfo.RemoteRequestPtrRemoteRequestProtocolSeqsArrayPtrMaxCount = 0x01
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.ScmRequestInfo.RemoteRequestPtrRemoteRequestProtocolSeqsArrayPtrProtocolSeq = 0x07
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.ScmRequestInfo.UnusedBuffer = [6]byte{}
 	return r
 }
 
 func (p PacketDCOMRemoteInstance) Bytes() []byte {
 	buff := bytes.Buffer{}
-	binary.Write(&buff, binary.LittleEndian, p)
+	binary.Write(&buff, binary.LittleEndian, p.DCOMORPCThis)
+	binary.Write(&buff, binary.LittleEndian, p.Unknown2)
+	binary.Write(&buff, binary.LittleEndian, p.Unknown3)
+	binary.Write(&buff, binary.LittleEndian, p.Unknown4)
+	binary.Write(&buff, binary.LittleEndian, p.IActProperties.Bytes())
+	return buff.Bytes()
+}
+
+func (i IActProperties) Bytes() []byte {
+	buff := bytes.Buffer{}
+	binary.Write(&buff, binary.LittleEndian, i.CntData)
+	binary.Write(&buff, binary.LittleEndian, i.OBJREF.Signature)
+	binary.Write(&buff, binary.LittleEndian, i.OBJREF.Flags)
+	binary.Write(&buff, binary.LittleEndian, i.OBJREF.IID)
+	binary.Write(&buff, binary.LittleEndian, i.OBJREF.CUSTOMOBJREF.Bytes())
+
+	return buff.Bytes()
+}
+
+func (i CUSTOMOBJREF) Bytes() []byte {
+	buff := bytes.Buffer{}
+	binary.Write(&buff, binary.LittleEndian, i.CLSID)
+	binary.Write(&buff, binary.LittleEndian, i.CBExtension)
+	binary.Write(&buff, binary.LittleEndian, i.Size)
+	binary.Write(&buff, binary.LittleEndian, i.IActProperties.Bytes())
+
+	return buff.Bytes()
+}
+
+func (i IActProperties2) Bytes() []byte {
+	buff := bytes.Buffer{}
+	binary.Write(&buff, binary.LittleEndian, i.TotalSize)
+	binary.Write(&buff, binary.LittleEndian, i.Reserved)
+	binary.Write(&buff, binary.LittleEndian, i.CustomHeader)
+	binary.Write(&buff, binary.LittleEndian, i.Properties.SpecialSystemProperties)
+	binary.Write(&buff, binary.LittleEndian, i.Properties.InstantiationInfo)
+	binary.Write(&buff, binary.LittleEndian, i.Properties.ActivationContextInfo)
+	binary.Write(&buff, binary.LittleEndian, i.Properties.SecurityInfo.Bytes())
+	binary.Write(&buff, binary.LittleEndian, i.Properties.LocationInfo)
+	binary.Write(&buff, binary.LittleEndian, i.Properties.ScmRequestInfo)
+
+	return buff.Bytes()
+}
+
+func (i SecurityInfo) Bytes() []byte {
+	buff := bytes.Buffer{}
+	binary.Write(&buff, binary.LittleEndian, i.CommonHeader)
+	binary.Write(&buff, binary.LittleEndian, i.PrivateHeader)
+	binary.Write(&buff, binary.LittleEndian, i.AuthenticationFlags)
+	binary.Write(&buff, binary.LittleEndian, i.ServerInfoPtrReferentID)
+	binary.Write(&buff, binary.LittleEndian, i.NULLPtr)
+	binary.Write(&buff, binary.LittleEndian, i.ServerInfoServerInfoReserved)
+	binary.Write(&buff, binary.LittleEndian, i.ServerInfoServerInfoNameReferentID)
+	binary.Write(&buff, binary.LittleEndian, i.ServerInfoServerInfoNULLPtr)
+	binary.Write(&buff, binary.LittleEndian, i.ServerInfoServerInfoReserved2)
+	binary.Write(&buff, binary.LittleEndian, i.ServerInfoServerInfoNameMaxCount)
+	binary.Write(&buff, binary.LittleEndian, i.ServerInfoServerInfoNameOffset)
+	binary.Write(&buff, binary.LittleEndian, i.ServerInfoServerInfoNameActualCount)
+	binary.Write(&buff, binary.LittleEndian, i.ServerInfoServerInfoNameString)
 	return buff.Bytes()
 }
 
