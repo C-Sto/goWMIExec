@@ -33,15 +33,8 @@ type WmiExecConfig struct {
 }
 
 func NewExecConfig(username, password, hash, domain, target, clientHostname string, verbose bool, logger *zap.Logger) (WmiExecConfig, error) {
-	unihn, err := toUnicodeS(clientHostname)
-	if err != nil {
-		return WmiExecConfig{}, err
-	}
-	r := WmiExecConfig{
-		username: username, password: password, hash: hash, domain: domain,
-		targetAddress: target, clientHostname: unihn,
-		verbose: verbose,
-	}
+	r := WmiExecConfig{}
+
 	if logger == nil {
 		//default logger
 		//r.logger = zap.new
@@ -53,6 +46,24 @@ func NewExecConfig(username, password, hash, domain, target, clientHostname stri
 			return r, err
 		}
 		r.logger = logger
+	}
+
+	clientHostname = strings.ToUpper(clientHostname)
+	if len(clientHostname) > 16 {
+		clientHostname = clientHostname[:15]
+		r.logger.Sugar().Infof("Hostname too long (over 16 chars). Using first 15 chars: %s", clientHostname)
+	}
+
+	unihn, err := toUnicodeS(clientHostname)
+	if err != nil {
+		return WmiExecConfig{}, err
+	}
+
+	r = WmiExecConfig{
+		username: username, password: password, hash: hash, domain: domain,
+		targetAddress: target, clientHostname: unihn,
+		verbose: verbose,
+		logger:  logger,
 	}
 
 	return r, nil
