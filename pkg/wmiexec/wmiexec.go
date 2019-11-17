@@ -515,19 +515,54 @@ func (e *wmiExecer) Exec(command string) error {
 				contextID = 2
 				opNum = 3
 				rqUUID = e.objUUID2
-				hnLen := uint32((len(e.config.clientHostname) / 2) + 1)
+				s, ee := unicode.UTF16(unicode.LittleEndian, unicode.IgnoreBOM).NewDecoder().String(e.config.clientHostname)
+				if ee != nil {
+					panic(e)
+				}
+
+				//this is an extremely gross hack, due to the fact I don't understand how dcom/dcerpc packets need to be formatted for this specific call.
+				//there is a weird bug to do with lengths here. awgh and myself spent a long time trying to work out wtf is going on, alas, dcom has beaten us for now
+				if len(s) != 15 {
+					newName := RandStringBytesMaskImprSrcSB(15)
+					ns, err := unicode.UTF16(unicode.LittleEndian, unicode.IgnoreBOM).NewEncoder().String(newName)
+					if err != nil {
+						panic("why me")
+					}
+					e.log.Infof("name length not 15, got %d. Converting to %s (was %s)", len(e.config.clientHostname), newName, s)
+					e.config.clientHostname = ns
+					s = newName
+				}
+
+				hnLen := uint32(len(s) + 1)
 				hnBytes := append([]byte(e.config.clientHostname), 0, 0)
-				stubData = []byte{0x05, 0x00, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
-				stubData = append(stubData, e.causality...)
-				stubData = append(stubData, 0, 0, 0, 0, 0, 0, 2, 0)
+				type setClientInfo struct {
+					VersionMajor uint16
+					VersionMinor uint16
+				}
+				stubData = []byte{
+					0x05, 0x00, //version major
+					0x07, 0x00, //version minor
+					0x00, 0x00, 0x00, 0x00, //flags
+					0x00, 0x00, 0x00, 0x00, //reserved
+				}
+				stubData = append(stubData, e.causality...) //causality (obviously), which is a 16 byte value
+
+				//extent array? https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-dcom/87f24bd8-83dd-49a5-a9e8-bfb1b023abc0
+				stubData = append(stubData,
+					0, 0, 0, 0, //size?
+					0, 0, 2, 0) // ??? reserved??
 				hnLenByte := make([]byte, 4)
 				binary.LittleEndian.PutUint32(hnLenByte, hnLen)
-				stubData = append(stubData, hnLenByte...)
-				stubData = append(stubData, 0, 0, 0, 0)
-				stubData = append(stubData, hnLenByte...)
-				stubData = append(stubData, hnBytes...)
-				stubData = append(stubData, 13, 37)
-				stubData = append(stubData, 0, 0, 0, 0, 0, 0)
+				stubData = append(stubData, hnLenByte...) //32bit length (assume this is maxlen)
+				stubData = append(stubData, 0, 0, 0, 0)   //32 bit nulls (pointer to first value)
+				stubData = append(stubData, hnLenByte...) //32bit length (assume this is actuallen)
+				stubData = append(stubData, hnBytes...)   //actual name
+				//processID
+				pid := []byte{0, 0}
+				rand.Read(pid)
+				stubData = append(stubData, pid...)           //pid (ofc)
+				stubData = append(stubData, 0, 0, 0, 0, 0, 0) //6 bytes of null?
+				e.log.Info("Stub Len: ", len(stubData))
 				nextStage = "AlterContext"
 				//expected = 64
 
@@ -858,4 +893,33 @@ func toUnicodeS(s string) (string, error) {
 		return "", e
 	}
 	return s, nil
+}
+
+//https://stackoverflow.com/questions/22892120/how-to-generate-a-random-string-of-a-fixed-length-in-go
+
+const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+const (
+	letterIdxBits = 6                    // 6 bits to represent a letter index
+	letterIdxMask = 1<<letterIdxBits - 1 // All 1-bits, as many as letterIdxBits
+	letterIdxMax  = 63 / letterIdxBits   // # of letter indices fitting in 63 bits
+)
+
+func RandStringBytesMaskImprSrcSB(n int) string {
+	rand.NewSource(time.Now().UnixNano())
+	sb := strings.Builder{}
+	sb.Grow(n)
+	// A src.Int63() generates 63 random bits, enough for letterIdxMax characters!
+	for i, cache, remain := n-1, rand.Int63(), letterIdxMax; i >= 0; {
+		if remain == 0 {
+			cache, remain = rand.Int63(), letterIdxMax
+		}
+		if idx := int(cache & letterIdxMask); idx < len(letterBytes) {
+			sb.WriteByte(letterBytes[idx])
+			i--
+		}
+		cache >>= letterIdxBits
+		remain--
+	}
+
+	return sb.String()
 }
