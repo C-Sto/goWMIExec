@@ -7,6 +7,8 @@ import (
 	"errors"
 	"io"
 
+	"go.uber.org/zap/zapcore"
+
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
@@ -32,10 +34,10 @@ type WmiExecConfig struct {
 	logger  *zap.Logger
 }
 
-func NewExecConfig(username, password, hash, domain, target, clientHostname string, verbose bool, logger *zap.Logger) (WmiExecConfig, error) {
+func NewExecConfig(username, password, hash, domain, target, clientHostname string, verbose bool, logger *zap.Logger, writer io.Writer) (WmiExecConfig, error) {
 	r := WmiExecConfig{}
 
-	if logger == nil {
+	if logger == nil && writer == nil {
 		//default logger
 		//r.logger = zap.new
 		var err error
@@ -46,6 +48,15 @@ func NewExecConfig(username, password, hash, domain, target, clientHostname stri
 			return r, err
 		}
 		r.logger = logger
+	} else if writer != nil && logger == nil {
+		writeser := zapcore.AddSync(writer)
+		customWriter := zapcore.Lock(writeser)
+		c := zapcore.NewConsoleEncoder(zap.NewProductionEncoderConfig())
+		core := zapcore.NewCore(c, customWriter, zap.LevelEnablerFunc(func(lvl zapcore.Level) bool {
+			return lvl < zapcore.ErrorLevel
+		}))
+		logger = zap.New(core)
+
 	}
 
 	clientHostname = strings.ToUpper(clientHostname)
@@ -729,10 +740,15 @@ func (e *wmiExecer) Exec(command string) error {
 				}
 			}
 			if nextStage == "Result" {
-				e.log.Info("PID? ", binary.LittleEndian.Uint16(resp[1141:1145]))
-				return nil
-			}
+				if len(resp) > 1145 {
+					e.log.Info("PID? ", binary.LittleEndian.Uint16(resp[1141:1145]))
+					return nil
+				} else {
+					e.log.Info("Response shorter than expected... possible error in command? Expected > 1145, got ", len(resp))
+					return nil
+				}
 
+			}
 			e.stage = nextStage
 
 		}
@@ -741,13 +757,16 @@ func (e *wmiExecer) Exec(command string) error {
 	return nil
 }
 
-func WMIExec(target, username, password, hash, domain, command, clientHostname string) error {
-	cfg, err := NewExecConfig(username, password, hash, domain, target, clientHostname, true, nil)
-	if err != nil {
-		return err
+func WMIExec(target, username, password, hash, domain, command, clientHostname string, cfgIn *WmiExecConfig) error {
+	if cfgIn == nil {
+		cfg, err := NewExecConfig(username, password, hash, domain, target, clientHostname, true, nil, nil)
+		if err != nil {
+			return err
+		}
+		cfgIn = &cfg
 	}
-	execer := NewExecer(&cfg)
-	err = execer.Connect()
+	execer := NewExecer(cfgIn)
+	err := execer.Connect()
 	if err != nil {
 		return err
 	}
