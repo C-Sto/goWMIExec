@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/binary"
 	"math"
+
+	"github.com/C-Sto/goWMIExec/pkg/wmiexec/uuid"
 )
 
 type DCOMORPCThis struct {
@@ -223,8 +225,8 @@ func NewDCOMRemoteInstance(causality [16]byte, target string) PacketDCOMRemoteIn
 	r.IActProperties.CntData = targetCnt           //", packet_cntdata);
 	r.IActProperties.OBJREF.Signature = 0x574f454d // 0x4d, 0x45, 0x4f, 0x57
 	r.IActProperties.OBJREF.Flags = 0x04
-	r.IActProperties.OBJREF.IID = [16]byte{0xa2, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46}
-	r.IActProperties.OBJREF.CUSTOMOBJREF.CLSID = [16]byte{0x38, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46}
+	r.IActProperties.OBJREF.IID = uuid.IID_IActivationPropertiesIn
+	r.IActProperties.OBJREF.CUSTOMOBJREF.CLSID = uuid.CLSID_ActivationPropertiesIn
 	r.IActProperties.OBJREF.CUSTOMOBJREF.CBExtension = 0x00
 	r.IActProperties.OBJREF.CUSTOMOBJREF.Size = pktSize                      //", packet_size);
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.TotalSize = pktTotal //", packet_total_size);
@@ -236,17 +238,17 @@ func NewDCOMRemoteInstance(causality [16]byte, target string) PacketDCOMRemoteIn
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.Reserved = 0x00
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.DestinationContext = 0x02
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.NumActivationProptertyStructs = 0x06
-	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.ClassInfoClsid = [16]byte{} // 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.ClassInfoClsid = uuid.NULL
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.ClsId.PtrReferentID = 0x020000
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.ClsId.PtrSizesReferentID = 0x00020004 //0x04, 0x00, 0x02, 0x00
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.ClsId.NULLPointer = 0x00
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.ClsId.PtrMaxCount = 0x06
-	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.ClsId.PtrPropertyStructGUID = [16]byte{0xb9, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46}
-	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.ClsId.PtrPropertyStructGUID2 = [16]byte{0xab, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46}
-	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.ClsId.PtrPropertyStructGUID3 = [16]byte{0xa5, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46}
-	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.ClsId.PtrPropertyStructGUID4 = [16]byte{0xa6, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46}
-	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.ClsId.PtrPropertyStructGUID5 = [16]byte{0xa4, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46}
-	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.ClsId.PtrPropertyStructGUID6 = [16]byte{0xaa, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46}
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.ClsId.PtrPropertyStructGUID = uuid.CLSID_SpecialSystemProperties
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.ClsId.PtrPropertyStructGUID2 = uuid.CLSID_InstantiationInfo
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.ClsId.PtrPropertyStructGUID3 = uuid.CLSID_ActivationContextInfo
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.ClsId.PtrPropertyStructGUID4 = uuid.CLSID_SecurityInfo
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.ClsId.PtrPropertyStructGUID5 = uuid.CLSID_ServerLocationInfo
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.ClsId.PtrPropertyStructGUID6 = uuid.CLSID_ScmRequestInfo
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.ClsId.SizesPtrMaxCount = 0x06
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.ClsId.SizesPtrPropertyDataSize = 0x68
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.ClsId.SizesPtrPropertyDataSize2 = 0x58
@@ -261,7 +263,7 @@ func NewDCOMRemoteInstance(causality [16]byte, target string) PacketDCOMRemoteIn
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.SpecialSystemProperties.ClientImpersonating = 0x00
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.SpecialSystemProperties.PartitionIDPresent = 0x00
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.SpecialSystemProperties.DefaultAuthnLevel = 0x02
-	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.SpecialSystemProperties.PartitionGUID = [16]byte{} // 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.SpecialSystemProperties.PartitionGUID = uuid.NULL
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.SpecialSystemProperties.ProcessRequestFlags = 0x00
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.SpecialSystemProperties.OriginalClassContext = 0x14
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.SpecialSystemProperties.Flags = 0x02
@@ -269,7 +271,7 @@ func NewDCOMRemoteInstance(causality [16]byte, target string) PacketDCOMRemoteIn
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.SpecialSystemProperties.UnusedBuffer = 0x00
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.InstantiationInfo.CommonHeader = 0xcccccccc00081001 //0x01, 0x10, 0x08, 0x00, 0xcc, 0xcc, 0xcc, 0xcc
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.InstantiationInfo.PrivateHeader = 0x48
-	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.InstantiationInfo.InstantiatedObjectClsId = [16]byte{0x5e, 0xf0, 0xc3, 0x8b, 0x6b, 0xd8, 0xd0, 0x11, 0xa0, 0x75, 0x00, 0xc0, 0x4f, 0xb6, 0x88, 0x20}
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.InstantiationInfo.InstantiatedObjectClsId = uuid.CLSID_WMIAppID
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.InstantiationInfo.ClassContext = 0x14
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.InstantiationInfo.ActivationFlags = 0x00
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.InstantiationInfo.FlagsSurrogate = 0x00
@@ -280,7 +282,7 @@ func NewDCOMRemoteInstance(causality [16]byte, target string) PacketDCOMRemoteIn
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.InstantiationInfo.VersionMajor = 0x05
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.InstantiationInfo.VersionMinor = 0x07
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.InstantiationInfo.InterfaceIdsMaxCount = 0x01
-	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.InstantiationInfo.InterfaceIds = [16]byte{0x18, 0xad, 0x09, 0xf3, 0x6a, 0xd8, 0xd0, 0x11, 0xa0, 0x75, 0x00, 0xc0, 0x4f, 0xb6, 0x88, 0x20}
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.InstantiationInfo.InterfaceIds = uuid.CLSID_WbemLevel1Login
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.InstantiationInfo.UnusedBuffer = 0x00
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.ActivationContextInfo.CommonHeader = 0xcccccccc00081001 // 0x01, 0x10, 0x08, 0x00, 0xcc, 0xcc, 0xcc, 0xcc
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.ActivationContextInfo.PrivateHeader = 0x80
@@ -294,8 +296,8 @@ func NewDCOMRemoteInstance(causality [16]byte, target string) PacketDCOMRemoteIn
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.ActivationContextInfo.ClientPtrClientContextCntData = 0x60
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.ActivationContextInfo.ClientPtrClientContextOBJREFSignature = 0x574f454d // 0x4d, 0x45, 0x4f, 0x57
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.ActivationContextInfo.ClientPtrClientContextOBJREFFlags = 0x04
-	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.ActivationContextInfo.ClientPtrClientContextOBJREFIID = [16]byte{0xc0, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46}
-	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.ActivationContextInfo.ClientPtrClientContextOBJREFCUSTOMOBJREFCLSID = [16]byte{0x3b, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46}
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.ActivationContextInfo.ClientPtrClientContextOBJREFIID = uuid.IID_IContext
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.ActivationContextInfo.ClientPtrClientContextOBJREFCUSTOMOBJREFCLSID = uuid.CLSID_ContextMarshaler
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.ActivationContextInfo.ClientPtrClientContextOBJREFCUSTOMOBJREFCBExtension = 0x00
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.ActivationContextInfo.ClientPtrClientContextOBJREFCUSTOMOBJREFSize = 0x30
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.ActivationContextInfo.UnusedBuffer = [48]byte{0x01, 0x00, 0x01, 0x00, 0x63, 0x2c, 0x80, 0x2a, 0xa5, 0xd2, 0xaf, 0xdd, 0x4d, 0xc4, 0xbb, 0x37, 0x4d, 0x37, 0x76, 0xd7, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00}

@@ -7,6 +7,8 @@ import (
 	"errors"
 	"io"
 
+	"github.com/C-Sto/goWMIExec/pkg/wmiexec/uuid"
+
 	"go.uber.org/zap/zapcore"
 
 	"encoding/binary"
@@ -120,9 +122,7 @@ func (e *wmiExecer) Connect() error {
 	}
 
 	defer e.tcpClient.Close()
-
-	rpcUUID := [16]byte{0xc4, 0xfe, 0xfc, 0x99, 0x60, 0x52, 0x1b, 0x10, 0xbb, 0xcb, 0x00, 0xaa, 0x00, 0x21, 0x34, 0x7a}
-	packetRPC := NewPacketRPCBind(2, 0xd016, 2, 0, rpcUUID, 0)
+	packetRPC := NewPacketRPCBind(2, 0xd016, 2, 0, uuid.IID_IObjectExporter, 0)
 	packetRPC.RPCHead.FragLength = 0x0074
 	prepBytes := packetRPC.Bytes()
 	recv := make([]byte, 2048)
@@ -180,9 +180,7 @@ func (e *wmiExecer) Auth() error {
 	}
 	defer e.tcpClient.Close()
 
-	rpcUUID := [16]byte{0xa0, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46}
-
-	packetRPC := NewPacketRPCBind(3, 0xd016, 1, 0x0001, rpcUUID, 0)
+	packetRPC := NewPacketRPCBind(3, 0xd016, 1, 0x0001, uuid.IID_IRemoteSCMActivator, 0)
 	packetRPC.RPCHead.FragLength = 0x0078
 	packetRPC.RPCHead.AuthLength = 0x0028
 	packetRPC.RPCBindTail.NegotiateFlags = 0xa2088207
@@ -330,7 +328,7 @@ func (e *wmiExecer) RPCConnect() error {
 	}
 	//lol always open tcp
 
-	bindPacket := NewPacketRPCBind(2, 0x160d, 3, 0, [16]byte{0x43, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46}, 0)
+	bindPacket := NewPacketRPCBind(2, 0x160d, 3, 0, uuid.IID_IRemUnknown2, 0)
 	bindPacket.RPCHead.FragLength = 0xd0
 	bindPacket.RPCHead.AuthLength = 0x28
 	bindPacket.RPCBindTail.NegotiateFlags = 0xa2088297
@@ -407,7 +405,7 @@ func (e *wmiExecer) RPCConnect() error {
 	e.tcpClient.Write(prepBytes2)
 	packetRPC := NewPacketRPCRequest(0x83, 76, 16, 4, 2, 0, 3, e.objectUUID)
 
-	packetRemQ := NewPacketDCOMRemQueryInterface(e.causality, e.ipid, []byte{0xd6, 0x1c, 0x78, 0xd4, 0xd3, 0xe5, 0xdf, 0x44, 0xad, 0x94, 0x93, 0x0e, 0xfe, 0x48, 0xa8, 0x87})
+	packetRemQ := NewPacketDCOMRemQueryInterface(e.causality, e.ipid, uuid.IID_IWbemLoginClientID[:])
 	ntlmVer := NewPacketNTLMSSPVerifier(4, 4, 0)
 	rpcSign := append([]byte{0, 0, 0, 0}, packetRPC.Bytes()...)
 	rpcSign = append(rpcSign, packetRemQ.Bytes()...)
@@ -485,16 +483,16 @@ func (e *wmiExecer) Exec(command string) error {
 			case 0:
 				acID = 3
 				acConID = 2
-				acUUID = [16]byte{0xd6, 0x1c, 0x78, 0xd4, 0xd3, 0xe5, 0xdf, 0x44, 0xad, 0x94, 0x93, 0x0e, 0xfe, 0x48, 0xa8, 0x87}
+				acUUID = uuid.IID_IWbemLoginClientID
 			case 1:
 				acID = 4
 				acConID = 3
-				acUUID = [16]byte{0x18, 0xad, 0x09, 0xf3, 0x6a, 0xd8, 0xd0, 0x11, 0xa0, 0x75, 0x00, 0xc0, 0x4f, 0xb6, 0x88, 0x20}
+				acUUID = uuid.CLSID_WbemLevel1Login
 
 			case 6:
 				acID = 9
 				acConID = 4
-				acUUID = [16]byte{0x99, 0xdc, 0x56, 0x95, 0x8c, 0x82, 0xcf, 0x11, 0xa3, 0x7e, 0x00, 0xaa, 0x00, 0x32, 0x40, 0xc7}
+				acUUID = uuid.IID_IWbemServices
 			}
 
 			packetRPC := NewPacketRPCAlterContext(acID, e.assGroup, acConID, acUUID[:])
