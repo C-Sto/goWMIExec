@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/binary"
 
+	"github.com/C-Sto/goWMIExec/pkg/wmiexec/rpce"
+
 	"github.com/C-Sto/goWMIExec/pkg/wmiexec/uuid"
 )
 
@@ -13,7 +15,10 @@ const (
 	AccessDenied FaultStatus = 5
 )
 
-var statusmap = map[FaultStatus]string{5: "nca_s_fault_access_denied"}
+var statusmap = map[FaultStatus]string{
+	5:          "nca_s_fault_access_denied",
+	0x1c00001b: "nca_s_fault_remote_no_memory",
+}
 
 type PacketFault struct {
 	RPCHead     RPCHead
@@ -258,22 +263,23 @@ func (p PacketRPCRequest) Bytes() []byte {
 }
 
 type PacketRPCAuth3 struct {
-	RPCHead    RPCHead
-	RPCAuthBod RPCAuthBod
-	SSPData    []byte
+	RPCHead     RPCHead
+	Pad         [4]byte
+	Sec_trailer Sec_trailer
+	SSPData     []byte
 }
 
-type RPCAuthBod struct {
-	MaxXmitFrag   uint16
-	MaxRecvFrag   uint16
-	AuthType      byte
-	AuthLevel     byte
+type Sec_trailer struct {
+	//MaxXmitFrag   uint16
+	//MaxRecvFrag   uint16
+	AuthType      rpce.SecurityProviders
+	AuthLevel     rpce.AuthLevel
 	AuthPadLength byte
 	AuthReserved  byte
 	ContextID     uint32
 }
 
-func NewPacketRPCAuth3(ssp []byte) PacketRPCAuth3 {
+func NewPacketRPCAuth3(callID uint32, authLevel rpce.AuthLevel, ssp []byte) PacketRPCAuth3 {
 	ret := PacketRPCAuth3{}
 
 	ret.RPCHead.Version = 0x05
@@ -283,15 +289,13 @@ func NewPacketRPCAuth3(ssp []byte) PacketRPCAuth3 {
 	ret.RPCHead.DataRepresentation = [4]byte{0x10, 00, 00, 00}
 	ret.RPCHead.FragLength = uint16(len(ssp) + 28)
 	ret.RPCHead.AuthLength = uint16(len(ssp))
-	ret.RPCHead.CallID = 0x03
-
-	ret.RPCAuthBod.MaxXmitFrag = 0x16d0
-	ret.RPCAuthBod.MaxRecvFrag = 0x16d0
-	ret.RPCAuthBod.AuthType = 0x0a
-	ret.RPCAuthBod.AuthLevel = 0x02
-	ret.RPCAuthBod.AuthPadLength = 0
-	ret.RPCAuthBod.AuthReserved = 0
-	ret.RPCAuthBod.ContextID = 0
+	ret.RPCHead.CallID = callID //0x03
+	ret.Pad = [4]byte{0, 0, 0, 0}
+	ret.Sec_trailer.AuthType = rpce.RPC_C_AUTHN_WINNT // 0x0a
+	ret.Sec_trailer.AuthLevel = authLevel
+	ret.Sec_trailer.AuthPadLength = 0
+	ret.Sec_trailer.AuthReserved = 0
+	ret.Sec_trailer.ContextID = 0
 	ret.SSPData = ssp
 
 	return ret
@@ -300,7 +304,8 @@ func NewPacketRPCAuth3(ssp []byte) PacketRPCAuth3 {
 func (p PacketRPCAuth3) Bytes() []byte {
 	buff := bytes.Buffer{}
 	binary.Write(&buff, binary.LittleEndian, p.RPCHead)
-	binary.Write(&buff, binary.LittleEndian, p.RPCAuthBod)
+	binary.Write(&buff, binary.LittleEndian, p.Pad)
+	binary.Write(&buff, binary.LittleEndian, p.Sec_trailer)
 	buff.Write(p.SSPData)
 	return buff.Bytes()
 }
@@ -333,7 +338,7 @@ func NewPacketNTLMSSPVerifier(padLen, authlevel byte, seqNum uint32) PacketNTLMS
 		AuthReserved:                  0x00,
 		ContextID:                     0x00,
 		NTLMSSPVerifierVersionNumber:  0x01,
-		NTLMSSPVerifierChecksum:       [8]byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+		NTLMSSPVerifierChecksum:       [8]byte{},
 		NTLMSSPVerifierSequenceNumber: seqNum,
 	}
 

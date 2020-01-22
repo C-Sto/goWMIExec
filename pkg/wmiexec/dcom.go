@@ -45,8 +45,8 @@ type IActProperties2 struct {
 }
 
 type CustomHeader struct {
-	CommonHeader                  uint64
-	PrivateHeader                 uint64
+	CommonHeader                  CommonTypeHeader
+	PrivateHeader                 PrivateHeader
 	TotalSize                     uint32
 	CustomHeaderSize              uint32
 	Reserved                      uint32
@@ -54,6 +54,34 @@ type CustomHeader struct {
 	NumActivationProptertyStructs uint32
 	ClassInfoClsid                [16]byte
 	ClsId                         ClsId
+}
+
+type CommonTypeHeader struct {
+	Version            byte
+	Endianness         byte
+	CommonHeaderLength uint16
+	Filler             uint32
+}
+
+func NewCommonHeader1(endian int) CommonTypeHeader {
+	return CommonTypeHeader{
+		Version:            1,
+		Endianness:         0x10, //little endian
+		CommonHeaderLength: 8,
+		Filler:             0xcccccccc,
+	}
+}
+
+type PrivateHeader struct {
+	ObjectBufferLength uint32
+	Filler             uint32
+}
+
+func NewPrivateHeader(buflen uint32) PrivateHeader {
+	return PrivateHeader{
+		ObjectBufferLength: buflen,
+		Filler:             0x0000,
+	}
 }
 
 type ClsId struct {
@@ -86,8 +114,8 @@ type IAct2Properties struct {
 }
 
 type SpecialSystemProperties struct {
-	CommonHeader         uint64
-	PrivateHeader        uint64
+	CommonHeader         CommonTypeHeader
+	PrivateHeader        PrivateHeader
 	SessionID            uint32
 	RemoteThisSessionID  uint32
 	ClientImpersonating  uint32
@@ -102,8 +130,8 @@ type SpecialSystemProperties struct {
 }
 
 type InstantiationInfo struct {
-	CommonHeader            uint64
-	PrivateHeader           uint64
+	CommonHeader            CommonTypeHeader
+	PrivateHeader           PrivateHeader
 	InstantiatedObjectClsId [16]byte
 	ClassContext,
 	ActivationFlags,
@@ -119,8 +147,8 @@ type InstantiationInfo struct {
 }
 
 type ActivationContextInfo struct {
-	CommonHeader                                        uint64
-	PrivateHeader                                       uint64
+	CommonHeader                                        CommonTypeHeader
+	PrivateHeader                                       PrivateHeader
 	ClientOk                                            uint32
 	Reserved                                            uint32
 	Reserved2                                           uint32
@@ -139,8 +167,8 @@ type ActivationContextInfo struct {
 }
 
 type SecurityInfo struct {
-	CommonHeader                        uint64
-	PrivateHeader                       uint64 //", packet_private_header);
+	CommonHeader                        CommonTypeHeader
+	PrivateHeader                       PrivateHeader //", packet_private_header);
 	AuthenticationFlags                 uint32
 	ServerInfoPtrReferentID             uint32
 	NULLPtr                             uint32
@@ -156,8 +184,8 @@ type SecurityInfo struct {
 }
 
 type LocationInfo struct {
-	CommonHeader  uint64
-	PrivateHeader uint64
+	CommonHeader  CommonTypeHeader
+	PrivateHeader PrivateHeader
 	NULLPtr       uint32
 	ProcessID     uint32
 	ApartmentID   uint32
@@ -165,8 +193,8 @@ type LocationInfo struct {
 }
 
 type ScmRequestInfo struct {
-	CommonHeader                                                 uint64
-	PrivateHeader                                                uint64
+	CommonHeader                                                 CommonTypeHeader
+	PrivateHeader                                                PrivateHeader
 	NULLPtr                                                      uint32
 	RemoteRequestPtrReferentID                                   uint32
 	RemoteRequestPtrRemoteRequestClientImpersonationLevel        uint32
@@ -209,7 +237,7 @@ func NewDCOMRemoteInstance(causality [16]byte, target string) PacketDCOMRemoteIn
 	targetCnt := uint32(len(targetB)) + 720
 	pktSize := uint32(len(targetB)) + 680
 	pktTotal := uint32(len(targetB)) + 664
-	privHeader := uint64(len(targetB) + 40)
+	privHeader := uint32(len(targetB) + 40)
 	propDataSize := uint32(len(targetB) + 56)
 
 	r.DCOMORPCThis.VersionMajor = 0x05
@@ -231,9 +259,9 @@ func NewDCOMRemoteInstance(causality [16]byte, target string) PacketDCOMRemoteIn
 	r.IActProperties.OBJREF.CUSTOMOBJREF.Size = pktSize                      //", packet_size);
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.TotalSize = pktTotal //", packet_total_size);
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Reserved = 0x00
-	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.CommonHeader = 0xcccccccc00081001 // 0x01, 0x10, 0x08, 0x00, 0xcc, 0xcc, 0xcc, 0xcc
-	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.PrivateHeader = 0xb0              // 0xb0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.TotalSize = pktTotal              //", packet_total_size);
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.CommonHeader = NewCommonHeader1(0x10)  //
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.PrivateHeader = NewPrivateHeader(0xb0) // 0xb0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.TotalSize = pktTotal                   //", packet_total_size);
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.CustomHeaderSize = 0xc0
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.Reserved = 0x00
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.DestinationContext = 0x02
@@ -256,8 +284,8 @@ func NewDCOMRemoteInstance(causality [16]byte, target string) PacketDCOMRemoteIn
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.ClsId.SizesPtrPropertyDataSize4 = propDataSize //", packet_property_data_size);
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.ClsId.SizesPtrPropertyDataSize5 = 0x20
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.CustomHeader.ClsId.SizesPtrPropertyDataSize6 = 0x30
-	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.SpecialSystemProperties.CommonHeader = 0xcccccccc00081001 // 0x01, 0x10, 0x08, 0x00, 0xcc, 0xcc, 0xcc, 0xcc
-	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.SpecialSystemProperties.PrivateHeader = 0x58
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.SpecialSystemProperties.CommonHeader = NewCommonHeader1(0x10) // 0xcccccccc00081001 // 0x01, 0x10, 0x08, 0x00, 0xcc, 0xcc, 0xcc, 0xcc
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.SpecialSystemProperties.PrivateHeader = NewPrivateHeader(0x58)
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.SpecialSystemProperties.SessionID = 0xffffffff
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.SpecialSystemProperties.RemoteThisSessionID = 0x00
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.SpecialSystemProperties.ClientImpersonating = 0x00
@@ -269,8 +297,8 @@ func NewDCOMRemoteInstance(causality [16]byte, target string) PacketDCOMRemoteIn
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.SpecialSystemProperties.Flags = 0x02
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.SpecialSystemProperties.Reserved = [32]byte{} // 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.SpecialSystemProperties.UnusedBuffer = 0x00
-	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.InstantiationInfo.CommonHeader = 0xcccccccc00081001 //0x01, 0x10, 0x08, 0x00, 0xcc, 0xcc, 0xcc, 0xcc
-	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.InstantiationInfo.PrivateHeader = 0x48
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.InstantiationInfo.CommonHeader = NewCommonHeader1(0x10) //0xcccccccc00081001 //0x01, 0x10, 0x08, 0x00, 0xcc, 0xcc, 0xcc, 0xcc
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.InstantiationInfo.PrivateHeader = NewPrivateHeader(0x48)
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.InstantiationInfo.InstantiatedObjectClsId = uuid.CLSID_WMIAppID
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.InstantiationInfo.ClassContext = 0x14
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.InstantiationInfo.ActivationFlags = 0x00
@@ -284,8 +312,8 @@ func NewDCOMRemoteInstance(causality [16]byte, target string) PacketDCOMRemoteIn
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.InstantiationInfo.InterfaceIdsMaxCount = 0x01
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.InstantiationInfo.InterfaceIds = uuid.CLSID_WbemLevel1Login
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.InstantiationInfo.UnusedBuffer = 0x00
-	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.ActivationContextInfo.CommonHeader = 0xcccccccc00081001 // 0x01, 0x10, 0x08, 0x00, 0xcc, 0xcc, 0xcc, 0xcc
-	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.ActivationContextInfo.PrivateHeader = 0x80
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.ActivationContextInfo.CommonHeader = NewCommonHeader1(0x10) // 0xcccccccc00081001 // 0x01, 0x10, 0x08, 0x00, 0xcc, 0xcc, 0xcc, 0xcc
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.ActivationContextInfo.PrivateHeader = NewPrivateHeader(0x80)
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.ActivationContextInfo.ClientOk = 0x00
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.ActivationContextInfo.Reserved = 0x00
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.ActivationContextInfo.Reserved2 = 0x00
@@ -301,8 +329,8 @@ func NewDCOMRemoteInstance(causality [16]byte, target string) PacketDCOMRemoteIn
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.ActivationContextInfo.ClientPtrClientContextOBJREFCUSTOMOBJREFCBExtension = 0x00
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.ActivationContextInfo.ClientPtrClientContextOBJREFCUSTOMOBJREFSize = 0x30
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.ActivationContextInfo.UnusedBuffer = [48]byte{0x01, 0x00, 0x01, 0x00, 0x63, 0x2c, 0x80, 0x2a, 0xa5, 0xd2, 0xaf, 0xdd, 0x4d, 0xc4, 0xbb, 0x37, 0x4d, 0x37, 0x76, 0xd7, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00}
-	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.SecurityInfo.CommonHeader = 0xcccccccc00081001 // 0x01, 0x10, 0x08, 0x00, 0xcc, 0xcc, 0xcc, 0xcc
-	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.SecurityInfo.PrivateHeader = privHeader        //", packet_private_header);
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.SecurityInfo.CommonHeader = NewCommonHeader1(0x10)        // 0xcccccccc00081001 // 0x01, 0x10, 0x08, 0x00, 0xcc, 0xcc, 0xcc, 0xcc
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.SecurityInfo.PrivateHeader = NewPrivateHeader(privHeader) //", packet_private_header);
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.SecurityInfo.AuthenticationFlags = 0x00
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.SecurityInfo.ServerInfoPtrReferentID = 0x0200
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.SecurityInfo.NULLPtr = 0x00
@@ -315,14 +343,14 @@ func NewDCOMRemoteInstance(causality [16]byte, target string) PacketDCOMRemoteIn
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.SecurityInfo.ServerInfoServerInfoNameActualCount = targetL               //", packet_target_length);
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.SecurityInfo.ServerInfoServerInfoNameString = make([]byte, len(targetB)) //", packet_target_unicode);
 	copy(r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.SecurityInfo.ServerInfoServerInfoNameString[:], targetB)
-	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.LocationInfo.CommonHeader = 0xcccccccc00081001  //0x01, 0x10, 0x08, 0x00, 0xcc, 0xcc, 0xcc, 0xcc
-	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.LocationInfo.PrivateHeader = 0xcccccccc00081001 //0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.LocationInfo.CommonHeader = NewCommonHeader1(0x10)  //0xcccccccc00081001  //0x01, 0x10, 0x08, 0x00, 0xcc, 0xcc, 0xcc, 0xcc
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.LocationInfo.PrivateHeader = NewPrivateHeader(0x10) //0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.LocationInfo.NULLPtr = 0x00
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.LocationInfo.ProcessID = 0x00
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.LocationInfo.ApartmentID = 0x00
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.LocationInfo.ContextID = 0x00
-	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.ScmRequestInfo.CommonHeader = 0xcccccccc00081001 // 0x01, 0x10, 0x08, 0x00, 0xcc, 0xcc, 0xcc, 0xcc
-	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.ScmRequestInfo.PrivateHeader = 0x20
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.ScmRequestInfo.CommonHeader = NewCommonHeader1(0x10) // 0xcccccccc00081001 // 0x01, 0x10, 0x08, 0x00, 0xcc, 0xcc, 0xcc, 0xcc
+	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.ScmRequestInfo.PrivateHeader = NewPrivateHeader(0x20)
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.ScmRequestInfo.NULLPtr = 0x00
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.ScmRequestInfo.RemoteRequestPtrReferentID = 0x0200
 	r.IActProperties.OBJREF.CUSTOMOBJREF.IActProperties.Properties.ScmRequestInfo.RemoteRequestPtrRemoteRequestClientImpersonationLevel = 0x02

@@ -1,8 +1,8 @@
 package uuid
 
-type uuid [16]byte
+type UUID [16]byte
 
-var NULL = uuid{}
+var NULL = UUID{}
 
 var NDRTransferSyntax_V2 = fromStringInternalOnly("8a885d04-1ceb-11c9-9fe8-08002b104860")
 

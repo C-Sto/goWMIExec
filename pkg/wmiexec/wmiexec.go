@@ -7,6 +7,8 @@ import (
 	"errors"
 	"io"
 
+	"github.com/C-Sto/goWMIExec/pkg/wmiexec/rpce"
+
 	"github.com/C-Sto/goWMIExec/pkg/wmiexec/uuid"
 
 	"go.uber.org/zap/zapcore"
@@ -122,6 +124,8 @@ func (e *wmiExecer) Connect() error {
 	}
 
 	defer e.tcpClient.Close()
+
+	//Hello, please are you ok to connect?
 	packetRPC := NewPacketRPCBind(2, 0xd016, 2, 0, uuid.IID_IObjectExporter, 0)
 	packetRPC.RPCHead.FragLength = 0x0074
 	prepBytes := packetRPC.Bytes()
@@ -129,6 +133,7 @@ func (e *wmiExecer) Connect() error {
 	e.tcpClient.Write(prepBytes)
 	e.tcpClient.Read(recv)
 	recvHdr := RPCHead{}
+
 	binary.Read(bytes.NewReader(recv), binary.LittleEndian, &recvHdr)
 
 	if recvHdr.PacketType != 12 {
@@ -137,6 +142,7 @@ func (e *wmiExecer) Connect() error {
 	}
 	e.log.Info("Successfully connected to host and sent a bind request")
 
+	//cool, can we auth?
 	packetRPCReq := NewPacketRPCRequest(3, 0, 0, 0, 02, 0, 0x05, nil)
 	copy(prepBytes, make([]byte, len(prepBytes))) //zero the buffer, just in case something dumb is giong on
 	prepBytes = packetRPCReq.Bytes()
@@ -180,6 +186,7 @@ func (e *wmiExecer) Auth() error {
 	}
 	defer e.tcpClient.Close()
 
+	//ey, can I please talk to SCM? I will use NTLM SSP to auth..
 	packetRPC := NewPacketRPCBind(3, 0xd016, 1, 0x0001, uuid.IID_IRemoteSCMActivator, 0)
 	packetRPC.RPCHead.FragLength = 0x0078
 	packetRPC.RPCHead.AuthLength = 0x0028
@@ -188,6 +195,7 @@ func (e *wmiExecer) Auth() error {
 	prepBytes := packetRPC.Bytes()
 	recv := make([]byte, 2048)
 	e.tcpClient.Write(prepBytes)
+
 	lenRead, _ := e.tcpClient.Read(recv)
 
 	index := bytes.Index(recv, []byte("NTLMSSP"))
@@ -197,8 +205,6 @@ func (e *wmiExecer) Auth() error {
 	ntlmChal := recv[index+24 : index+32]
 	deets := recv[index+56+int(nameLen) : index+56+int(nameLen)+int(tgtLen)]
 	timebytes := recv[lenRead-12 : lenRead-4]
-
-	//user hash here!
 
 	//hostname := toUnicodeS("DESKTOP-65V3K18")
 	hostname := e.config.clientHostname
@@ -255,7 +261,7 @@ func (e *wmiExecer) Auth() error {
 	sspResp = append(sspResp, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00)
 	sspResp = append(sspResp, ntlmResp...)
 
-	packetAuth := NewPacketRPCAuth3(sspResp)
+	packetAuth := NewPacketRPCAuth3(3, rpce.RPC_C_AUTHN_LEVEL_CONNECT, sspResp)
 	prepBytes2 := packetAuth.Bytes()
 	e.tcpClient.Write(prepBytes2)
 
@@ -398,9 +404,8 @@ func (e *wmiExecer) RPCConnect() error {
 	sspResp = append(sspResp, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00)
 	sspResp = append(sspResp, ntlmResp...)
 
-	packetAuth := NewPacketRPCAuth3(sspResp)
-	packetAuth.RPCHead.CallID = 2
-	packetAuth.RPCAuthBod.AuthLevel = 4
+	packetAuth := NewPacketRPCAuth3(2, rpce.RPC_C_AUTHN_LEVEL_PKT, sspResp)
+
 	prepBytes2 := packetAuth.Bytes()
 	e.tcpClient.Write(prepBytes2)
 	packetRPC := NewPacketRPCRequest(0x83, 76, 16, 4, 2, 0, 3, e.objectUUID)
