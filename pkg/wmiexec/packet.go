@@ -18,6 +18,8 @@ const (
 var statusmap = map[FaultStatus]string{
 	5:          "nca_s_fault_access_denied",
 	0x1c00001b: "nca_s_fault_remote_no_memory",
+	0x1c01000b: "nca_proto_error (The RPC client or server protocol has been violated.)",
+	0x1c010003: "nca_unk_if (The server does not export the requested interface.)",
 }
 
 type PacketFault struct {
@@ -78,6 +80,27 @@ type CTXItem struct {
 	TransferSyntaxVer uint32
 }
 
+func NewCTXItem(
+	id uint16,
+	//numtransitems byte,
+	interf uuid.UUID,
+	//ifVersMaj,
+	//ifVersMin uint16,
+	tfsyn uuid.UUID,
+	tfsVers uint32,
+) CTXItem {
+	return CTXItem{
+		ContextID:         id,
+		NumTransItems:     1,
+		Unkown2:           0x00,
+		Interface:         interf,
+		InterfaceVers:     0,
+		InterfaceVerMinor: 0,
+		TransferSyntax:    tfsyn,
+		TransferSyntaxVer: tfsVers,
+	}
+}
+
 type RPCBindTail struct {
 	AuthType                 byte   // { 0x0a });
 	AuthLevel                byte   // { 0x04 });
@@ -100,10 +123,11 @@ type PacketRPCBind struct {
 	RPCBindTail RPCBindTail
 }
 
-func NewPacketRPCBind(packetCallID uint32, packetMaxFrag uint16, packetNumCTXItems byte, packetContextID uint16, packetUUID [16]byte, packetUUIDVersion uint16) PacketRPCBind {
+func NewPacketRPCBind(packetCallID uint32, packetCTXItems []CTXItem) PacketRPCBind {
+	packetNumCTXItems := byte(len(packetCTXItems))
+
 	ret := PacketRPCBind{}
 	retH := RPCHead{}
-	retC := []CTXItem{}
 	retH.Version = 0x05
 	retH.VersionMinor = 0x00
 	retH.PacketType = 0x0b
@@ -123,59 +147,23 @@ func NewPacketRPCBind(packetCallID uint32, packetMaxFrag uint16, packetNumCTXIte
 	retBH.Unknown = [3]byte{}
 	ret.BindHead = retBH
 
-	ctx1 := CTXItem{}
-	ctx1.ContextID = packetContextID
-	ctx1.NumTransItems = 1
-	ctx1.Unkown2 = 0x00
-	ctx1.Interface = packetUUID
-	ctx1.InterfaceVers = packetUUIDVersion
-	ctx1.InterfaceVerMinor = 0x00
-	ctx1.TransferSyntax = uuid.NDRTransferSyntax_V2
-	ctx1.TransferSyntaxVer = 0x02
-	retC = append(retC, ctx1)
+	if packetNumCTXItems == 3 {
 
-	if packetNumCTXItems >= 2 {
-		ctx2 := CTXItem{}
-		ctx2.ContextID = 0x0001
-		ctx2.NumTransItems = 0x01
-		ctx2.Unkown2 = 0x00
-		ctx2.Interface = uuid.IID_IObjectExporter
-		ctx2.InterfaceVers = 0x0000
-		ctx2.InterfaceVerMinor = 0x0000
-		ctx2.TransferSyntax = uuid.BindTimeFeatureReneg
-		ctx2.TransferSyntaxVer = 0x01000000
-		retC = append(retC, ctx2)
+		tail := RPCBindTail{}
 
-		if packetNumCTXItems == 3 {
-			retC[1].Interface = uuid.IID_IRemUnknown2
-			retC[1].TransferSyntax = uuid.NDR64TransferSyntax
-			ctx3 := CTXItem{}
-			ctx3.ContextID = 0x0200
-			ctx3.NumTransItems = 0x01
-			ctx3.Unkown2 = 0x00
-			ctx3.Interface = uuid.IID_IRemUnknown2
-			ctx3.InterfaceVers = 0x00
-			ctx3.InterfaceVerMinor = 0x00
-			ctx2.TransferSyntax = uuid.BindTimeFeatureReneg
-			ctx3.TransferSyntaxVer = 0x01000000
-			retC = append(retC, ctx3)
+		tail.AuthType = 0x0a
+		tail.AuthLevel = 0x04
+		tail.AuthPadLength = 0x00
+		tail.AuthReserved = 0x00
+		tail.ContextID4 = 0x00
+		tail.Identifier = 0x005053534d4c544e
+		tail.MessageType = 0x01
+		tail.NegotiateFlags = 0xe2088297
+		tail.CallingWorkstationDomain = 0x00
+		tail.CallingWorkstationName = 0x00
+		tail.OSVersion = 0x0f0000001db10106
 
-			tail := RPCBindTail{}
-
-			tail.AuthType = 0x0a
-			tail.AuthLevel = 0x04
-			tail.AuthPadLength = 0x00
-			tail.AuthReserved = 0x00
-			tail.ContextID4 = 0x00
-			tail.Identifier = 0x005053534d4c544e
-			tail.MessageType = 0x01
-			tail.NegotiateFlags = 0xe2088297
-			tail.CallingWorkstationDomain = 0x00
-			tail.CallingWorkstationName = 0x00
-			tail.OSVersion = 0x0f0000001db10106
-
-			ret.RPCBindTail = tail
-		}
+		ret.RPCBindTail = tail
 	}
 
 	if packetCallID == 3 {
@@ -193,7 +181,7 @@ func NewPacketRPCBind(packetCallID uint32, packetMaxFrag uint16, packetNumCTXIte
 		tail.OSVersion = 0x0f0000001db10106
 		ret.RPCBindTail = tail
 	}
-	ret.CTXItems = retC
+	ret.CTXItems = packetCTXItems
 	return ret
 }
 

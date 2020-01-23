@@ -126,9 +126,14 @@ func (e *wmiExecer) Connect() error {
 	defer e.tcpClient.Close()
 
 	//Hello, please are you ok to connect?
-	packetRPC := NewPacketRPCBind(2, 0xd016, 2, 0, uuid.IID_IObjectExporter, 0)
+	ctxItems := []CTXItem{
+		NewCTXItem(0, uuid.IID_IObjectExporter, uuid.NDRTransferSyntax_V2, 0x02),
+		NewCTXItem(1, uuid.IID_IObjectExporter, uuid.BindTimeFeatureReneg, 0x01000000),
+	}
+	packetRPC := NewPacketRPCBind(2, ctxItems)
 	packetRPC.RPCHead.FragLength = 0x0074
 	prepBytes := packetRPC.Bytes()
+
 	recv := make([]byte, 2048)
 	e.tcpClient.Write(prepBytes)
 	e.tcpClient.Read(recv)
@@ -187,7 +192,10 @@ func (e *wmiExecer) Auth() error {
 	defer e.tcpClient.Close()
 
 	//ey, can I please talk to SCM? I will use NTLM SSP to auth..
-	packetRPC := NewPacketRPCBind(3, 0xd016, 1, 0x0001, uuid.IID_IRemoteSCMActivator, 0)
+	ctxItems := []CTXItem{
+		NewCTXItem(1, uuid.IID_IRemoteSCMActivator, uuid.NDRTransferSyntax_V2, 0x02),
+	}
+	packetRPC := NewPacketRPCBind(3, ctxItems)
 	packetRPC.RPCHead.FragLength = 0x0078
 	packetRPC.RPCHead.AuthLength = 0x0028
 	packetRPC.RPCBindTail.NegotiateFlags = 0xa2088207
@@ -334,7 +342,12 @@ func (e *wmiExecer) RPCConnect() error {
 	}
 	//lol always open tcp
 
-	bindPacket := NewPacketRPCBind(2, 0x160d, 3, 0, uuid.IID_IRemUnknown2, 0)
+	ctxItems := []CTXItem{
+		NewCTXItem(0, uuid.IID_IRemUnknown2, uuid.NDRTransferSyntax_V2, 0x02),
+		NewCTXItem(1, uuid.IID_IRemUnknown2, uuid.NDR64TransferSyntax, 0x01000000),
+		NewCTXItem(0x0200, uuid.IID_IRemUnknown2, uuid.BindTimeFeatureReneg, 0x01000000),
+	}
+	bindPacket := NewPacketRPCBind(2, ctxItems)
 	bindPacket.RPCHead.FragLength = 0xd0
 	bindPacket.RPCHead.AuthLength = 0x28
 	bindPacket.RPCBindTail.NegotiateFlags = 0xa2088297
