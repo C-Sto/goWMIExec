@@ -2,7 +2,9 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"os"
+	"strings"
 
 	"github.com/c-sto/goWMIExec/pkg/wmiexec"
 )
@@ -24,6 +26,16 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
+	}
+
+	if target == "" || (password == "" && hash == "") {
+		flag.Usage()
+		os.Exit(1)
+	}
+
+	if !strings.Contains(target, ":") {
+		fmt.Printf("Bad target specified, requires port (usually 135). expected: 127.0.0.1:135, got %s", target)
+		os.Exit(1)
 	}
 
 	err := wmiexec.WMIExec(target, username, password, hash, domain, command, clientHost, nil)
