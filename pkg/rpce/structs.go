@@ -1,7 +1,7 @@
 package rpce
 
 import (
-	"github.com/C-Sto/goWMIExec/pkg/wmiexec/uuid"
+	"github.com/C-Sto/goWMIExec/pkg/uuid"
 )
 
 //2.2.1.1.1 (same as rpc_if_id_t)

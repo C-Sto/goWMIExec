@@ -5,7 +5,7 @@ import (
 	"encoding/binary"
 	"math"
 
-	"github.com/C-Sto/goWMIExec/pkg/wmiexec/uuid"
+	"github.com/C-Sto/goWMIExec/pkg/uuid"
 )
 
 type DCOMORPCThis struct {

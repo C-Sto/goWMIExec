@@ -7,9 +7,11 @@ import (
 	"errors"
 	"io"
 
-	"github.com/C-Sto/goWMIExec/pkg/wmiexec/rpce"
+	"github.com/C-Sto/goWMIExec/pkg/ntlmssp"
 
-	"github.com/C-Sto/goWMIExec/pkg/wmiexec/uuid"
+	"github.com/C-Sto/goWMIExec/pkg/rpce"
+
+	"github.com/C-Sto/goWMIExec/pkg/uuid"
 
 	"go.uber.org/zap/zapcore"
 
@@ -204,20 +206,16 @@ func (e *wmiExecer) Auth() error {
 	recv := make([]byte, 2048)
 	e.tcpClient.Write(prepBytes)
 
-	lenRead, _ := e.tcpClient.Read(recv)
+	e.tcpClient.Read(recv)
 
 	index := bytes.Index(recv, []byte("NTLMSSP"))
-	nameLen := binary.LittleEndian.Uint16(recv[index+12 : index+14])
-	tgtLen := binary.LittleEndian.Uint16(recv[index+40 : index+42])
+	challengeInfo := ntlmssp.NewSSPChallenge(recv[index:])
+	ntlmChal := challengeInfo.ServerChallenge[:]
+	deets := challengeInfo.Payload.GetTargetInfoBytes()
+	timebytes := challengeInfo.Payload.GetTimeBytes()
 
-	ntlmChal := recv[index+24 : index+32]
-	deets := recv[index+56+int(nameLen) : index+56+int(nameLen)+int(tgtLen)]
-	timebytes := recv[lenRead-12 : lenRead-4]
-
-	//hostname := toUnicodeS("DESKTOP-65V3K18")
 	hostname := e.config.clientHostname
-	//domain here!
-	//username here!
+
 	domain := []byte(e.config.domain)
 	uniuser, err := toUnicodeS(e.config.username)
 	if err != nil {
@@ -284,7 +282,7 @@ func (e *wmiExecer) Auth() error {
 	prepBytes3 := p.Bytes()
 	recv3 := make([]byte, 2048)
 	e.tcpClient.Write(append(prepBytes3, dcomThing.Bytes()...))
-	lenRead, _ = e.tcpClient.Read(recv3)
+	e.tcpClient.Read(recv3)
 
 	if recv3[2] == 3 {
 		pf := PacketFault{}

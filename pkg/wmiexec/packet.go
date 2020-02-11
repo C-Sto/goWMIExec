@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"encoding/binary"
 
-	"github.com/C-Sto/goWMIExec/pkg/wmiexec/rpce"
+	"github.com/C-Sto/goWMIExec/pkg/rpce"
 
-	"github.com/C-Sto/goWMIExec/pkg/wmiexec/uuid"
+	"github.com/C-Sto/goWMIExec/pkg/uuid"
 )
 
 type FaultStatus uint32
