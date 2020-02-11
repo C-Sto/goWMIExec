@@ -18,6 +18,10 @@ type SSP_FeildInformation struct {
 	BufferOffset uint32
 }
 
+func NewSSPFeildInformation(len uint16, offset uint32) SSP_FeildInformation {
+	return SSP_FeildInformation{Len: len, MaxLen: len, BufferOffset: offset}
+}
+
 type SSP_Challenge struct {
 	Signature        [8]byte
 	MessageType      uint32
@@ -55,7 +59,7 @@ func (c ChallengePayload) GetTimeBytes() []byte {
 	return nil
 }
 
-func NewSSPChallenge(b []byte) SSP_Challenge {
+func ParseSSPChallenge(b []byte) SSP_Challenge {
 	cursor := 0
 
 	r := SSP_Challenge{}
@@ -107,18 +111,68 @@ func NewSSPChallenge(b []byte) SSP_Challenge {
 }
 
 type SSP_Authenticate struct {
-	Signature                       [8]byte
-	MessageType                     uint32
-	LmChallengeResponseFields       SSP_FeildInformation
-	NtChallengeResponseFields       SSP_FeildInformation
-	DomainNameFields                SSP_FeildInformation
-	UsernameFields                  SSP_FeildInformation
-	WorkstationFields               SSP_FeildInformation
-	EncryptedRandomSessionKeyFields SSP_FeildInformation
-	NegotiateFlags                  uint32
-	Version                         [8]byte
-	MIC                             [16]byte
-	Payload                         authenticatePayload
+	Signature                       [8]byte              //8
+	MessageType                     uint32               //12
+	LmChallengeResponseFields       SSP_FeildInformation //20
+	NtChallengeResponseFields       SSP_FeildInformation //28
+	DomainNameFields                SSP_FeildInformation //36
+	UsernameFields                  SSP_FeildInformation //44
+	WorkstationFields               SSP_FeildInformation //52
+	EncryptedRandomSessionKeyFields SSP_FeildInformation //60
+	NegotiateFlags                  uint32               //64
+	//Version                         [8]byte              //72
+	//MIC     [16]byte //88 //https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-nlmp/a211d894-21bc-4b8b-86ba-b83d0c167b00#Appendix_A_12 HMMMM
+	Payload authenticatePayload
+}
+
+func NewSSPAuthenticate(response, domainName, username, workstation, sessionkey []byte) SSP_Authenticate {
+	r := SSP_Authenticate{
+		Signature:   [8]byte{0x4e, 0x54, 0x4c, 0x4d, 0x53, 0x53, 0x50, 0x00},
+		MessageType: 3,
+	}
+	payloadOffset := 64                                                            //only because no MIC and no negotiate flag to do version
+	r.LmChallengeResponseFields = NewSSPFeildInformation(0, uint32(payloadOffset)) //not supporting lm I guess
+	r.NtChallengeResponseFields = NewSSPFeildInformation(uint16(len(response)), uint32(payloadOffset))
+	r.Payload.NtChallengeResponse = response
+	payloadOffset += len(response)
+	r.DomainNameFields = NewSSPFeildInformation(uint16(len(domainName)), uint32(payloadOffset))
+	r.Payload.DomainName = domainName
+	payloadOffset += len(domainName)
+	r.UsernameFields = NewSSPFeildInformation(uint16(len(username)), uint32(payloadOffset))
+	r.Payload.UserName = username
+	payloadOffset += len(username)
+	r.WorkstationFields = NewSSPFeildInformation(uint16(len(workstation)), uint32(payloadOffset))
+	r.Payload.Workstation = workstation
+	payloadOffset += len(workstation)
+	//r.WorkstationFields = NewSSPFeildInformation(uint16(len(workstation)), uint32(72+payloadOffset))
+	r.Payload.EncryptedRandomSessionKey = sessionkey
+	r.NegotiateFlags = 0xa2888215 // hard coded for now - flags should be selected sanely in the future
+
+	//0x18, 0x00, 0x18, 0x00}
+
+	return r
+}
+
+func (s SSP_Authenticate) Bytes() []byte {
+	buff := bytes.Buffer{}
+	binary.Write(&buff, binary.LittleEndian, s.Signature)
+	binary.Write(&buff, binary.LittleEndian, s.MessageType)
+	binary.Write(&buff, binary.LittleEndian, s.LmChallengeResponseFields)
+	binary.Write(&buff, binary.LittleEndian, s.NtChallengeResponseFields)
+	binary.Write(&buff, binary.LittleEndian, s.DomainNameFields)
+	binary.Write(&buff, binary.LittleEndian, s.UsernameFields)
+	binary.Write(&buff, binary.LittleEndian, s.WorkstationFields)
+	binary.Write(&buff, binary.LittleEndian, s.EncryptedRandomSessionKeyFields)
+	binary.Write(&buff, binary.LittleEndian, s.NegotiateFlags)
+
+	buff.Write(s.Payload.LmChallengeResponse)
+	buff.Write(s.Payload.NtChallengeResponse)
+	buff.Write(s.Payload.DomainName)
+	buff.Write(s.Payload.UserName)
+	buff.Write(s.Payload.Workstation)
+	buff.Write(s.Payload.EncryptedRandomSessionKey)
+
+	return buff.Bytes()
 }
 
 type authenticatePayload struct {

@@ -209,7 +209,7 @@ func (e *wmiExecer) Auth() error {
 	e.tcpClient.Read(recv)
 
 	index := bytes.Index(recv, []byte("NTLMSSP"))
-	challengeInfo := ntlmssp.NewSSPChallenge(recv[index:])
+	challengeInfo := ntlmssp.ParseSSPChallenge(recv[index:])
 	ntlmChal := challengeInfo.ServerChallenge[:]
 	deets := challengeInfo.Payload.GetTargetInfoBytes()
 	timebytes := challengeInfo.Payload.GetTimeBytes()
@@ -229,43 +229,47 @@ func (e *wmiExecer) Auth() error {
 	}
 
 	ntlmResp := NTLMV2Response(key1, ntlmChal, timebytes, deets)
-	userOffset := uint32ToBytes(uint32(len(domain) + 64))
-	hostOffset := uint32ToBytes(uint32(len(domain) + len(username) + 64))
-	lmOffset := uint32ToBytes(uint32(len(domain) + len(username) + len(hostname) + 64))
-	ntlmOffset := uint32ToBytes(uint32(len(domain) + len(username) + len(hostname) + 88))
-	sessionKeyOffset := uint32ToBytes(uint32(len(domain) + len(username) + len(hostname) + len(ntlmResp) + 88))
+	/*
+		userOffset := uint32ToBytes(uint32(len(domain) + 64))
+		hostOffset := uint32ToBytes(uint32(len(domain) + len(username) + 64))
+		lmOffset := uint32ToBytes(uint32(len(domain) + len(username) + len(hostname) + 64))
+		ntlmOffset := uint32ToBytes(uint32(len(domain) + len(username) + len(hostname) + 88))
+		sessionKeyOffset := uint32ToBytes(uint32(len(domain) + len(username) + len(hostname) + len(ntlmResp) + 88))
 
-	sspResp := []byte{0x4e, 0x54, 0x4c, 0x4d, 0x53, 0x53, 0x50, 0x00, 0x03, 0x00, 0x00, 0x00, 0x18, 0x00, 0x18, 0x00}
-	sspResp = append(sspResp, lmOffset...)
-	//these double up as 'maxlen'
-	sspResp = append(sspResp, uint16ToBytes(uint16(len(ntlmResp)))...)
-	sspResp = append(sspResp, uint16ToBytes(uint16(len(ntlmResp)))...)
-	sspResp = append(sspResp, ntlmOffset...)
+			sspResp := []byte{0x4e, 0x54, 0x4c, 0x4d, 0x53, 0x53, 0x50, 0x00, 0x03, 0x00, 0x00, 0x00, 0x18, 0x00, 0x18, 0x00}
+			sspResp = append(sspResp, lmOffset...)
+			//e.log.Fatalf("%+v %d", chk, lmOffset[0])
+			//these double up as 'maxlen'
+			sspResp = append(sspResp, uint16ToBytes(uint16(len(ntlmResp)))...)
+			sspResp = append(sspResp, uint16ToBytes(uint16(len(ntlmResp)))...)
+			sspResp = append(sspResp, ntlmOffset...)
 
-	sspResp = append(sspResp, uint16ToBytes(uint16(len(domain)))...)
-	sspResp = append(sspResp, uint16ToBytes(uint16(len(domain)))...)
-	sspResp = append(sspResp, 0x40, 0, 0, 0)
+			sspResp = append(sspResp, uint16ToBytes(uint16(len(domain)))...)
+			sspResp = append(sspResp, uint16ToBytes(uint16(len(domain)))...)
+			sspResp = append(sspResp, 0x40, 0, 0, 0)
 
-	sspResp = append(sspResp, uint16ToBytes(uint16(len(username)))...)
-	sspResp = append(sspResp, uint16ToBytes(uint16(len(username)))...)
-	sspResp = append(sspResp, userOffset...)
+			sspResp = append(sspResp, uint16ToBytes(uint16(len(username)))...)
+			sspResp = append(sspResp, uint16ToBytes(uint16(len(username)))...)
+			sspResp = append(sspResp, userOffset...)
 
-	sspResp = append(sspResp, uint16ToBytes(uint16(len(hostname)))...)
-	sspResp = append(sspResp, uint16ToBytes(uint16(len(hostname)))...)
-	sspResp = append(sspResp, hostOffset...)
+			sspResp = append(sspResp, uint16ToBytes(uint16(len(hostname)))...)
+			sspResp = append(sspResp, uint16ToBytes(uint16(len(hostname)))...)
+			sspResp = append(sspResp, hostOffset...)
 
-	//session key length
-	sspResp = append(sspResp, 0, 0, 0, 0)
-	sspResp = append(sspResp, sessionKeyOffset...)
+			//session key length
+			sspResp = append(sspResp, 0, 0, 0, 0)
+			sspResp = append(sspResp, sessionKeyOffset...)
 
-	//negotiate flags
-	sspResp = append(sspResp, 0x15, 0x82, 0x88, 0xa2)
+			//negotiate flags
+			sspResp = append(sspResp, 0x15, 0x82, 0x88, 0xa2)
 
-	sspResp = append(sspResp, domain...)
-	sspResp = append(sspResp, username...)
-	sspResp = append(sspResp, hostname...)
-	sspResp = append(sspResp, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00)
-	sspResp = append(sspResp, ntlmResp...)
+			sspResp = append(sspResp, domain...)
+			sspResp = append(sspResp, username...)
+			sspResp = append(sspResp, hostname...)
+			sspResp = append(sspResp, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00)
+			sspResp = append(sspResp, ntlmResp...)
+	*/
+	sspResp := ntlmssp.NewSSPAuthenticate(ntlmResp, domain, username, []byte(hostname), nil).Bytes()
 
 	packetAuth := NewPacketRPCAuth3(3, rpce.RPC_C_AUTHN_LEVEL_CONNECT, sspResp)
 	prepBytes2 := packetAuth.Bytes()
