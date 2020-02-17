@@ -123,7 +123,10 @@ type PacketRPCBind struct {
 	RPCBindTail RPCBindTail
 }
 
-func NewPacketRPCBind(packetCallID uint32, packetCTXItems []CTXItem) PacketRPCBind {
+func NewPacketRPCBind(
+	packetCallID uint32,
+	packetCTXItems []CTXItem) PacketRPCBind {
+
 	packetNumCTXItems := byte(len(packetCTXItems))
 
 	ret := PacketRPCBind{}

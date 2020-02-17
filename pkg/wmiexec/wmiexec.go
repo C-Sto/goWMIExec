@@ -128,18 +128,36 @@ func (e *wmiExecer) Connect() error {
 	defer e.tcpClient.Close()
 
 	//Hello, please are you ok to connect?
-	ctxItems := []CTXItem{
-		NewCTXItem(0, uuid.IID_IObjectExporter, uuid.NDRTransferSyntax_V2, 0x02),
-		NewCTXItem(1, uuid.IID_IObjectExporter, uuid.BindTimeFeatureReneg, 0x01000000),
-	}
-	packetRPC := NewPacketRPCBind(2, ctxItems)
-	packetRPC.RPCHead.FragLength = 0x0074
-	prepBytes := packetRPC.Bytes()
+	//we seem to be using the iobjectexporter abstract syntax... whatever that means?
+	abs := rpce.NewPSyntaxID(uuid.IID_IObjectExporter, 0)
+
+	ctxList := rpce.NewPcontextList()
+	ctxList.AddContext( //I tried to make it neater... I failed :(
+		rpce.NewPcontextElem(
+			0,
+			abs,
+			[]rpce.PSyntaxID{
+				rpce.NewPSyntaxID(uuid.NDRTransferSyntax_V2, 2),
+			},
+		),
+	)
+
+	ctxList.AddContext( //I tried to make it neater... I failed :(
+		rpce.NewPcontextElem(
+			0,
+			abs,
+			[]rpce.PSyntaxID{
+				rpce.NewPSyntaxID(uuid.BindTimeFeatureReneg, 0x01000000),
+			},
+		),
+	)
+	packetRPC := rpce.NewBindReq(2, ctxList, nil)
 
 	recv := make([]byte, 2048)
-	e.tcpClient.Write(prepBytes)
+
+	e.tcpClient.Write(packetRPC.Bytes())
 	e.tcpClient.Read(recv)
-	recvHdr := RPCHead{}
+	recvHdr := rpce.CommonHead{}
 
 	binary.Read(bytes.NewReader(recv), binary.LittleEndian, &recvHdr)
 
@@ -151,9 +169,7 @@ func (e *wmiExecer) Connect() error {
 
 	//cool, can we auth?
 	packetRPCReq := NewPacketRPCRequest(3, 0, 0, 0, 02, 0, 0x05, nil)
-	copy(prepBytes, make([]byte, len(prepBytes))) //zero the buffer, just in case something dumb is giong on
-	prepBytes = packetRPCReq.Bytes()
-	e.tcpClient.Write(prepBytes)
+	e.tcpClient.Write(packetRPCReq.Bytes())
 	n, err := e.tcpClient.Read(recv)
 	if err != nil {
 		e.log.Error("Error reading tcp thing")

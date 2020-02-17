@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/C-Sto/goWMIExec/pkg/wmiexec/uuid"
+	"github.com/C-Sto/goWMIExec/pkg/uuid"
 )
 
 func main() {
