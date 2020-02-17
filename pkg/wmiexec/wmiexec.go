@@ -165,19 +165,30 @@ func (e *wmiExecer) Connect() error {
 		e.log.Info("No, can't connect soz lol")
 		return errors.New("Got an unexpected response. Wanted 12 (0x0c) got ")
 	}
+
 	e.log.Info("Successfully connected to host and sent a bind request")
 
 	//cool, can we auth?
-	packetRPCReq := NewPacketRPCRequest(3, 0, 0, 0, 02, 0, 0x05, nil)
+	packetRPCReq := rpce.NewRequestReq(2, 0, 5, nil, nil)
 	e.tcpClient.Write(packetRPCReq.Bytes())
-	n, err := e.tcpClient.Read(recv)
+
+	e.tcpClient.Read(recv)
 	if err != nil {
 		e.log.Error("Error reading tcp thing")
 		return err
 	}
+
 	e.log.Info("Successfully connected to host and sent an RPC request packet")
-	rsp := NewDCOMResponse(recv[:n])
-	resolved := NewDCOMOXIDResolver(rsp.Stub)
+	//	rsp := NewDCOMResponse(recv[:n])
+	recvHdr = rpce.CommonHead{}
+	readr := bytes.NewReader(recv)
+	binary.Read(readr, binary.LittleEndian, &recvHdr)
+	if recvHdr.PacketType != 2 {
+		return fmt.Errorf("Got an unexpected response. Wanted 0x02 got %x", recvHdr.PacketType)
+	}
+	rsp := rpce.ParseResponse(recv)
+
+	resolved := NewDCOMOXIDResolver(rsp.StubData)
 
 	e.log.Infof("Resolved names, all network string bindings for host:")
 	for _, x := range resolved.StringBindings {
@@ -210,22 +221,57 @@ func (e *wmiExecer) Auth() error {
 	defer e.tcpClient.Close()
 
 	//ey, can I please talk to SCM? I will use NTLM SSP to auth..
-	ctxItems := []CTXItem{
-		NewCTXItem(1, uuid.IID_IRemoteSCMActivator, uuid.NDRTransferSyntax_V2, 0x02),
-	}
-	packetRPC := NewPacketRPCBind(3, ctxItems)
-	packetRPC.RPCHead.FragLength = 0x0078
-	packetRPC.RPCHead.AuthLength = 0x0028
-	packetRPC.RPCBindTail.NegotiateFlags = 0xa2088207
+	ctxList := rpce.NewPcontextList()
+	ctxList.AddContext(rpce.NewPcontextElem(
+		1,
+		rpce.NewPSyntaxID(uuid.IID_IRemoteSCMActivator, 0),
+		[]rpce.PSyntaxID{
+			rpce.NewPSyntaxID(uuid.NDRTransferSyntax_V2, 2),
+		},
+	))
 
-	prepBytes := packetRPC.Bytes()
+	n := ntlmssp.NewSSPNegotiate(0xa2088207) //todo: make this flags... value below
+	/*
+			Name	Value	Bit Offset	Bit Length	Type
+		NTLMSSP_NEGOTIATE_UNICODE	(...............................1)	96	1
+		NTLM_NEGOTIATE_OEM	(..............................1.)	97	1
+		NTLMSSP_REQUEST_TARGET	(.............................1..)	98	1
+		NTLMSSP_NEGOTIATE_SIGN	(...........................0....)	100	1
+		NTLMSSP_NEGOTIATE_SEAL	(..........................0.....)	101	1
+		NTLMSSP_NEGOTIATE_DATAGRAM	(.........................0......)	102	1
+		NTLMSSP_NEGOTIATE_LM_KEY	(........................0.......)	103	1
+		NTLMSSP_NEGOTIATE_NTLM	(......................1.........)	105	1
+		NTLMSSP_ANONYMOUS_CONNECTIONS	(....................0...........)	107	1
+		NTLMSSP_NEGOTIATE_OEM_DOMAIN_SUPPLIED	(...................0............)	108	1
+		NTLMSSP_NEGOTIATE_OEM_WORKSTATION_SUPPLIED	(..................0.............)	109	1
+		NTLMSSP_NEGOTIATE_ALWAYS_SIGN	(................1...............)	111	1
+		NTLMSSP_TARGET_TYPE_DOMAIN	(...............0................)	112	1
+		NTLMSSP_TARGET_TYPE_SERVER	(..............0.................)	113	1
+		NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY	(............1...................)	115	1
+		NTLMSSP_NEGOTIATE_IDENTIFY	(...........0....................)	116	1
+		NTLMSSP_REQUEST_NON_NT_SESSION_KEY	(.........0......................)	118	1
+		NTLMSSP_NEGOTIATE_TARGET_INFO	(........0.......................)	119	1
+		NTLMSSP_NEGOTIATE_VERSION	(......1.........................)	121	1
+		NTLMSSP_NEGOTIATE_128	(..1.............................)	125	1
+		NTLMSSP_NEGOTIATE_KEY_EXCH	(.0..............................)	126	1
+		NTLMSSP_NEGOTIATE_56	(1...............................)	127	1
+	*/
+	auth := rpce.NewAuthVerifier(
+		rpce.RPC_C_AUTHN_WINNT,
+		rpce.RPC_C_AUTHN_LEVEL_CONNECT,
+		0,
+		n.Bytes(),
+	)
+
+	packetRPC := rpce.NewBindReq(3, ctxList, &auth)
 	recv := make([]byte, 2048)
-	e.tcpClient.Write(prepBytes)
+	e.tcpClient.Write(packetRPC.Bytes())
 
 	e.tcpClient.Read(recv)
+	//should probably check here that it's not an error
+	bindAck := rpce.ParseBindAck(recv)
 
-	index := bytes.Index(recv, []byte("NTLMSSP"))
-	challengeInfo := ntlmssp.ParseSSPChallenge(recv[index:])
+	challengeInfo := ntlmssp.ParseSSPChallenge(bindAck.AuthVerifier.AuthValue)
 	ntlmChal := challengeInfo.ServerChallenge[:]
 	deets := challengeInfo.Payload.GetTargetInfoBytes()
 	timebytes := challengeInfo.Payload.GetTimeBytes()
@@ -245,46 +291,6 @@ func (e *wmiExecer) Auth() error {
 	}
 
 	ntlmResp := NTLMV2Response(key1, ntlmChal, timebytes, deets)
-	/*
-		userOffset := uint32ToBytes(uint32(len(domain) + 64))
-		hostOffset := uint32ToBytes(uint32(len(domain) + len(username) + 64))
-		lmOffset := uint32ToBytes(uint32(len(domain) + len(username) + len(hostname) + 64))
-		ntlmOffset := uint32ToBytes(uint32(len(domain) + len(username) + len(hostname) + 88))
-		sessionKeyOffset := uint32ToBytes(uint32(len(domain) + len(username) + len(hostname) + len(ntlmResp) + 88))
-
-			sspResp := []byte{0x4e, 0x54, 0x4c, 0x4d, 0x53, 0x53, 0x50, 0x00, 0x03, 0x00, 0x00, 0x00, 0x18, 0x00, 0x18, 0x00}
-			sspResp = append(sspResp, lmOffset...)
-			//e.log.Fatalf("%+v %d", chk, lmOffset[0])
-			//these double up as 'maxlen'
-			sspResp = append(sspResp, uint16ToBytes(uint16(len(ntlmResp)))...)
-			sspResp = append(sspResp, uint16ToBytes(uint16(len(ntlmResp)))...)
-			sspResp = append(sspResp, ntlmOffset...)
-
-			sspResp = append(sspResp, uint16ToBytes(uint16(len(domain)))...)
-			sspResp = append(sspResp, uint16ToBytes(uint16(len(domain)))...)
-			sspResp = append(sspResp, 0x40, 0, 0, 0)
-
-			sspResp = append(sspResp, uint16ToBytes(uint16(len(username)))...)
-			sspResp = append(sspResp, uint16ToBytes(uint16(len(username)))...)
-			sspResp = append(sspResp, userOffset...)
-
-			sspResp = append(sspResp, uint16ToBytes(uint16(len(hostname)))...)
-			sspResp = append(sspResp, uint16ToBytes(uint16(len(hostname)))...)
-			sspResp = append(sspResp, hostOffset...)
-
-			//session key length
-			sspResp = append(sspResp, 0, 0, 0, 0)
-			sspResp = append(sspResp, sessionKeyOffset...)
-
-			//negotiate flags
-			sspResp = append(sspResp, 0x15, 0x82, 0x88, 0xa2)
-
-			sspResp = append(sspResp, domain...)
-			sspResp = append(sspResp, username...)
-			sspResp = append(sspResp, hostname...)
-			sspResp = append(sspResp, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00)
-			sspResp = append(sspResp, ntlmResp...)
-	*/
 	sspResp := ntlmssp.NewSSPAuthenticate(ntlmResp, domain, username, []byte(hostname), nil).Bytes()
 
 	packetAuth := NewPacketRPCAuth3(3, rpce.RPC_C_AUTHN_LEVEL_CONNECT, sspResp)
@@ -298,7 +304,19 @@ func (e *wmiExecer) Auth() error {
 	rand.Read(cause_id_bytes[:])
 
 	dcomThing := NewDCOMRemoteInstance(cause_id_bytes, e.config.targetAddress)
-	p := NewPacketRPCRequest(0x03, uint16(len(dcomThing.Bytes())), 0, 0, 3, 1, 4, nil)
+
+	p := NewPacketRPCRequest(
+		0x03,                           //flags
+		uint16(len(dcomThing.Bytes())), //servicelen??
+		0,                              //authlen
+		0,                              //authpad
+		3,                              //callid
+		1,                              //contextid
+		4,                              //opNum
+		nil)                            //data
+
+	//p := rpce.NewRequestReq(3, 1, 4, dcomThing.Bytes(), nil)
+	//fmt.Println(pp)
 	prepBytes3 := p.Bytes()
 	recv3 := make([]byte, 2048)
 	e.tcpClient.Write(append(prepBytes3, dcomThing.Bytes()...))

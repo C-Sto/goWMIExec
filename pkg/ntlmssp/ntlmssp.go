@@ -6,10 +6,49 @@ import (
 )
 
 type SSP_Negotiate struct {
-	Signature        [8]byte
-	MessageType      uint32
-	NegotiateFlags   uint32
-	DomainNameFields SSP_FeildInformation
+	Signature         [8]byte
+	MessageType       uint32
+	NegotiateFlags    uint32
+	DomainNameFields  SSP_FeildInformation
+	WorkstationFields SSP_FeildInformation
+	Version           Version
+	Payload           NegotiatePayload
+}
+
+type NegotiatePayload struct {
+	DomainName      []byte
+	WorkstationName []byte
+}
+
+func NewSSPNegotiate(flags uint32) SSP_Negotiate {
+	r := SSP_Negotiate{}
+	//offset := uint32(64)
+	r.Signature = [8]byte{0x4e, 0x54, 0x4c, 0x4d, 0x53, 0x53, 0x50, 0x00}
+	r.MessageType = 1
+	r.NegotiateFlags = flags
+	r.DomainNameFields = NewSSPFeildInformation(0, 0)
+	r.WorkstationFields = NewSSPFeildInformation(0, 0)
+	r.Version = Version{
+		ProductMajor:        0x06,
+		ProductMinor:        0x01,
+		Build:               0x1db1, // (windows 7, probably a good signature for naughty activity)
+		NTLMRevisionCurrent: 0x0f,
+	}
+
+	return r
+}
+
+func (s SSP_Negotiate) Bytes() []byte {
+	buff := bytes.Buffer{}
+	binary.Write(&buff, binary.LittleEndian, s.Signature)
+	binary.Write(&buff, binary.LittleEndian, s.MessageType)
+	binary.Write(&buff, binary.LittleEndian, s.NegotiateFlags)
+	binary.Write(&buff, binary.LittleEndian, s.DomainNameFields)
+	binary.Write(&buff, binary.LittleEndian, s.WorkstationFields)
+	binary.Write(&buff, binary.LittleEndian, s.Version)
+	binary.Write(&buff, binary.LittleEndian, s.Payload.DomainName)
+	binary.Write(&buff, binary.LittleEndian, s.Payload.WorkstationName)
+	return buff.Bytes()
 }
 
 type SSP_FeildInformation struct {
@@ -182,4 +221,12 @@ type authenticatePayload struct {
 	UserName                  []byte
 	Workstation               []byte
 	EncryptedRandomSessionKey []byte
+}
+
+type Version struct {
+	ProductMajor        byte
+	ProductMinor        byte
+	Build               uint16
+	Reserved            [3]byte
+	NTLMRevisionCurrent byte
 }

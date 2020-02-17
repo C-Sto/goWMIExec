@@ -215,7 +215,12 @@ type PacketRPCRequest struct {
 	Data    []byte
 }
 
-func NewPacketRPCRequest(packetFlags byte, serviceLen, authLen, authPad uint16, callID uint32, contextID uint16, opNum uint16, data []byte) PacketRPCRequest {
+func NewPacketRPCRequest(packetFlags byte,
+	serviceLen, authLen, authPad uint16,
+	callID uint32,
+	contextID uint16,
+	opNum uint16,
+	data []byte) PacketRPCRequest {
 	fullAuthLen := uint16(0)
 
 	if authLen > 0 {

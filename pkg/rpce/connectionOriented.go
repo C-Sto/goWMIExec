@@ -193,11 +193,16 @@ type PResult struct {
 type PResultList struct {
 	NResults  byte
 	Reserved  byte
-	Reserved2 uint32
+	Reserved2 uint16
 	PResults  []PResult
 }
 
 type Version struct {
 	Major uint8
 	Minor uint8
+}
+
+type PortAny struct {
+	Length   uint16
+	PortSpec []byte
 }

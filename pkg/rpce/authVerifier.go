@@ -1,5 +1,10 @@
 package rpce
 
+import (
+	"bytes"
+	"encoding/binary"
+)
+
 // 13.2.6.1
 
 type AuthVerifier struct {
@@ -13,9 +18,30 @@ type AuthVerifier struct {
 }
 
 func (a AuthVerifier) SizeOf() int {
-	return 0
+	return len(a.Bytes())
 }
 
 func (a AuthVerifier) Bytes() []byte {
-	return []byte{}
+	buff := bytes.Buffer{}
+
+	binary.Write(&buff, binary.LittleEndian, a.Align)
+	binary.Write(&buff, binary.LittleEndian, a.AuthType)
+	binary.Write(&buff, binary.LittleEndian, a.AuthLevel)
+	binary.Write(&buff, binary.LittleEndian, a.AuthPadLength)
+	binary.Write(&buff, binary.LittleEndian, a.Reserved)
+	binary.Write(&buff, binary.LittleEndian, a.ContextID)
+	binary.Write(&buff, binary.LittleEndian, a.AuthValue)
+
+	return buff.Bytes()
+}
+
+func NewAuthVerifier(authType SecurityProviders, authLevel AuthLevel, contextID uint32, value []byte) AuthVerifier {
+	r := AuthVerifier{
+		AuthType:  authType,
+		AuthLevel: authLevel,
+		ContextID: contextID,
+		AuthValue: value,
+	}
+
+	return r
 }

@@ -33,6 +33,7 @@ func NewBindReq(callID uint32, ctxList *PContextList, auth *AuthVerifier) BindRe
 	}
 	if r.AuthVerifier != nil {
 		r.CommonHead.FragLength += uint16(r.AuthVerifier.SizeOf())
+		r.CommonHead.AuthLength = uint16(len(r.AuthVerifier.AuthValue))
 	}
 
 	return r
@@ -48,7 +49,6 @@ func (b BindReq) Bytes() []byte {
 		binary.Write(&buff, binary.LittleEndian, b.PresentationContextList.Bytes())
 	}
 	if b.AuthVerifier != nil {
-
 		binary.Write(&buff, binary.LittleEndian, b.AuthVerifier.Bytes())
 	}
 	return buff.Bytes()
