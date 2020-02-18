@@ -22,6 +22,7 @@ func NewRequestReq(callID uint32, ctxID ContextID, opNum uint16, data []byte, au
 	r.Opnum = opNum
 	r.StubData = make([]byte, len(data))
 	copy(r.StubData, data)
+	r.AuthVerifier = auth
 
 	r.AllocHint = 0 //idfk, I guess this should be the length of the data segment?
 

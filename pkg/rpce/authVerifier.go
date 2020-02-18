@@ -35,12 +35,14 @@ func (a AuthVerifier) Bytes() []byte {
 	return buff.Bytes()
 }
 
-func NewAuthVerifier(authType SecurityProviders, authLevel AuthLevel, contextID uint32, value []byte) AuthVerifier {
+func NewAuthVerifier(authType SecurityProviders, authLevel AuthLevel, contextID uint32, padLength byte, value []byte) AuthVerifier {
 	r := AuthVerifier{
-		AuthType:  authType,
-		AuthLevel: authLevel,
-		ContextID: contextID,
-		AuthValue: value,
+		Align:         make([]byte, padLength),
+		AuthType:      authType,
+		AuthLevel:     authLevel,
+		AuthPadLength: padLength,
+		ContextID:     contextID,
+		AuthValue:     value,
 	}
 
 	return r

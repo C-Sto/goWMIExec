@@ -2,7 +2,14 @@ package ntlmssp
 
 import (
 	"bytes"
+	"crypto/hmac"
+	"crypto/md5"
 	"encoding/binary"
+	"encoding/hex"
+	"strings"
+
+	"golang.org/x/crypto/md4"
+	"golang.org/x/text/encoding/unicode"
 )
 
 type SSP_Negotiate struct {
@@ -229,4 +236,60 @@ type Version struct {
 	Build               uint16
 	Reserved            [3]byte
 	NTLMRevisionCurrent byte
+}
+
+//http://davenport.sourceforge.net/ntlm.html#ntlm2Signing
+
+type MessageSignatureExtended struct {
+	Version  uint32
+	Checksum [8]byte
+	SeqNum   uint32
+}
+
+func (m MessageSignatureExtended) Bytes() []byte {
+	buff := bytes.Buffer{}
+	binary.Write(&buff, binary.LittleEndian, m.Version)
+	binary.Write(&buff, binary.LittleEndian, m.Checksum)
+	binary.Write(&buff, binary.LittleEndian, m.SeqNum)
+	return buff.Bytes()
+}
+
+func NewMessageSignature(sum [8]byte, seq uint32) MessageSignatureExtended {
+	r := MessageSignatureExtended{}
+	r.Version = 1
+	r.Checksum = sum
+	r.SeqNum = seq
+	return r
+}
+
+//NTLMV2Hash returns the NTLMV2 hash provided a password or hash (if both are provided, the hash takes precidence), username and target info. Assumes all strings are UTF8, and have not yet been converted to UTF16
+func NTLMV2Hash(password, hash, username, target string) ([]byte, error) {
+	if hash == "" {
+		h := md4.New()
+		unipw, err := toUnicodeS(password)
+		if err != nil {
+			return nil, err
+		}
+		h.Write([]byte(unipw))
+		hash = hex.EncodeToString(h.Sum(nil))
+	}
+	hashBytes, err := hex.DecodeString(hash)
+	if err != nil {
+		return nil, err
+	}
+	mac := hmac.New(md5.New, hashBytes)
+	idkman, err := toUnicodeS(strings.ToUpper(username) + target)
+	if err != nil {
+		return nil, err
+	}
+	mac.Write([]byte(idkman))
+	return mac.Sum(nil), nil
+}
+
+func toUnicodeS(s string) (string, error) {
+	s, e := unicode.UTF16(unicode.LittleEndian, unicode.IgnoreBOM).NewEncoder().String(s)
+	if e != nil {
+		return "", e
+	}
+	return s, nil
 }

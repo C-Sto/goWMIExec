@@ -260,6 +260,7 @@ func (e *wmiExecer) Auth() error {
 		rpce.RPC_C_AUTHN_WINNT,
 		rpce.RPC_C_AUTHN_LEVEL_CONNECT,
 		0,
+		0,
 		n.Bytes(),
 	)
 
@@ -400,6 +401,7 @@ func (e *wmiExecer) RPCConnect() error {
 		rpce.RPC_C_AUTHN_WINNT,
 		rpce.RPC_C_AUTHN_LEVEL_PKT,
 		0,
+		0,
 		n.Bytes(),
 	)
 	bindPacket := rpce.NewBindReq(2, ctxList, &auth)
@@ -426,7 +428,7 @@ func (e *wmiExecer) RPCConnect() error {
 	}
 	username := []byte(uniuser)
 
-	key1, err := NTLMV2Hash(e.config.password, string(e.config.hash), e.config.username, string(e.config.domain), e.logProper)
+	key1, err := ntlmssp.NTLMV2Hash(e.config.password, string(e.config.hash), e.config.username, string(e.config.domain))
 	if err != nil {
 		return err
 	}
@@ -438,24 +440,14 @@ func (e *wmiExecer) RPCConnect() error {
 
 	e.tcpClient.Write(packetAuth.Bytes())
 
-	packetRPC := NewPacketRPCRequest(
-		0x83,         //flags
-		76,           //svc len
-		16,           //authlen
-		4,            //authpad
-		2,            //callid
-		0,            //contextid
-		3,            //opnum
-		e.objectUUID) //data
-	//CHCKEPOINT
-	//packetRPC := rpce.NewRequestReq(2, 0, 3, e.objectUUID, nil)
-
 	packetRemQ := NewPacketDCOMRemQueryInterface(e.causality, e.ipid, uuid.IID_IWbemLoginClientID[:])
-	ntlmVer := NewPacketNTLMSSPVerifier(4, 4, 0)
-	rpcSign := append([]byte{0, 0, 0, 0}, packetRPC.Bytes()...)
-	rpcSign = append(rpcSign, packetRemQ.Bytes()...)
-	rpcSign = append(rpcSign, ntlmVer.Bytes()[:12]...)
+	authv := rpce.NewAuthVerifier(0x0a, 4, 0, 4, make([]byte, 16))
 
+	packetRPC := rpce.NewRequestReq(2, 0, 3, append(e.objectUUID, packetRemQ.Bytes()...), &authv)
+	packetRPC.CommonHead.PFCFlags = 0x83
+
+	//~~~~~~~~~~ DONT TOUCH UNLESS YOU LIKE SINKING HOURS DEBUGGING BUT ALSO THIS SHOULD BE MOVED TO SSP PACKAGE
+	rpcSign := append([]byte{0, 0, 0, 0}, packetRPC.Bytes()[:len(packetRPC.Bytes())-16]...)
 	mac := hmac.New(md5.New, key1)
 	mac.Write(ntlmResp[:mac.Size()])
 	sessionBase := mac.Sum(nil)
@@ -469,10 +461,16 @@ func (e *wmiExecer) RPCConnect() error {
 	hmacer := hmac.New(md5.New, e.clientSigningKey)
 	hmacer.Write(rpcSign)
 	sig := hmacer.Sum(nil)[:8]
-	copy(ntlmVer.SSPVerifierBody.NTLMSSPVerifierChecksum[:], sig)
+	//~~~~~~~~~~ OK YOU CAN TOUCH AGAIN
 
-	wmiClientSend := append(packetRPC.Bytes(), packetRemQ.Bytes()...)
-	wmiClientSend = append(wmiClientSend, ntlmVer.Bytes()...)
+	messagesig := ntlmssp.MessageSignatureExtended{
+		Version: 1,
+		//Checksum: sig,
+		SeqNum: 0,
+	}
+	copy(messagesig.Checksum[:], sig)
+	authv.AuthValue = messagesig.Bytes()
+	wmiClientSend := packetRPC.Bytes()
 	e.tcpClient.Write(wmiClientSend)
 	recv3 := make([]byte, 2048)
 	e.tcpClient.Read(recv3)
