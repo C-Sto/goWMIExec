@@ -268,6 +268,7 @@ func (e *wmiExecer) Auth() error {
 	e.tcpClient.Write(packetRPC.Bytes())
 
 	e.tcpClient.Read(recv)
+
 	//should probably check here that it's not an error
 	bindAck := rpce.ParseBindAck(recv)
 
@@ -293,11 +294,9 @@ func (e *wmiExecer) Auth() error {
 	ntlmResp := NTLMV2Response(key1, ntlmChal, timebytes, deets)
 	sspResp := ntlmssp.NewSSPAuthenticate(ntlmResp, domain, username, []byte(hostname), nil).Bytes()
 
-	packetAuth := NewPacketRPCAuth3(3, rpce.RPC_C_AUTHN_LEVEL_CONNECT, sspResp)
+	packetAuth := rpce.NewAuth3Req(3, rpce.RPC_C_AUTHN_LEVEL_CONNECT, sspResp)
 	prepBytes2 := packetAuth.Bytes()
 	e.tcpClient.Write(prepBytes2)
-
-	//lenRead, _ = tcpClient.Read(recv2)
 
 	cause_id_bytes := [16]byte{}
 	rand.Seed(time.Now().UnixNano())
@@ -305,21 +304,11 @@ func (e *wmiExecer) Auth() error {
 
 	dcomThing := NewDCOMRemoteInstance(cause_id_bytes, e.config.targetAddress)
 
-	p := NewPacketRPCRequest(
-		0x03,                           //flags
-		uint16(len(dcomThing.Bytes())), //servicelen??
-		0,                              //authlen
-		0,                              //authpad
-		3,                              //callid
-		1,                              //contextid
-		4,                              //opNum
-		nil)                            //data
-
-	//p := rpce.NewRequestReq(3, 1, 4, dcomThing.Bytes(), nil)
+	p := rpce.NewRequestReq(3, 1, 4, dcomThing.Bytes(), nil)
 	//fmt.Println(pp)
 	prepBytes3 := p.Bytes()
 	recv3 := make([]byte, 2048)
-	e.tcpClient.Write(append(prepBytes3, dcomThing.Bytes()...))
+	e.tcpClient.Write(prepBytes3)
 	e.tcpClient.Read(recv3)
 
 	if recv3[2] == 3 {
@@ -329,7 +318,10 @@ func (e *wmiExecer) Auth() error {
 		return errors.New(pf.StatusString())
 	}
 
-	if recv3[2] == 2 {
+	//should probably check here that it's not an error
+	rsp := rpce.ParseResponse(recv3)
+
+	if rsp.CommonHead.PacketType == 2 {
 		e.log.Info("WMI Access possible!")
 	}
 
@@ -338,8 +330,8 @@ func (e *wmiExecer) Auth() error {
 		return err
 	}
 	targ := "\x07\x00" + unihn
-	tgtIndex := bytes.Index(recv3, []byte(targ))
-	portString := recv3[tgtIndex+len(unihn)+2 : tgtIndex+len(unihn)+12]
+	tgtIndex := bytes.Index(rsp.StubData, []byte(targ))
+	portString := rsp.StubData[tgtIndex+len(unihn)+2 : tgtIndex+len(unihn)+12]
 	s, err := unicode.UTF16(unicode.LittleEndian, unicode.IgnoreBOM).NewDecoder().String(string(portString))
 	if err != nil {
 		return err
@@ -355,11 +347,11 @@ func (e *wmiExecer) Auth() error {
 
 	//meow... MS must have been smoking crack when this was developed
 	meowSig, _ := hex.DecodeString("4D454F570100000018AD09F36AD8D011A07500C04FB68820")
-	meowIndex := bytes.Index(recv3, meowSig)
-	ipid := recv3[meowIndex+48 : meowIndex+64]
-	e.oxid = recv3[meowIndex+32 : meowIndex+40]
-	oxid2Index := bytes.Index(recv3[meowIndex+100:], e.oxid)
-	objUUID := recv3[meowIndex+100+oxid2Index+12 : meowIndex+100+oxid2Index+28]
+	meowIndex := bytes.Index(rsp.StubData, meowSig)
+	ipid := rsp.StubData[meowIndex+48 : meowIndex+64]
+	e.oxid = rsp.StubData[meowIndex+32 : meowIndex+40]
+	oxid2Index := bytes.Index(rsp.StubData[meowIndex+100:], e.oxid)
+	objUUID := rsp.StubData[meowIndex+100+oxid2Index+12 : meowIndex+100+oxid2Index+28]
 	e.targetRPCPort = portNum
 	e.causality = cause_id_bytes[:]
 	e.ipid = ipid
@@ -378,29 +370,55 @@ func (e *wmiExecer) RPCConnect() error {
 	}
 	//lol always open tcp
 
-	ctxItems := []CTXItem{
-		NewCTXItem(0, uuid.IID_IRemUnknown2, uuid.NDRTransferSyntax_V2, 0x02),
-		NewCTXItem(1, uuid.IID_IRemUnknown2, uuid.NDR64TransferSyntax, 0x01000000),
-		NewCTXItem(0x0200, uuid.IID_IRemUnknown2, uuid.BindTimeFeatureReneg, 0x01000000),
-	}
-	bindPacket := NewPacketRPCBind(2, ctxItems)
-	bindPacket.RPCHead.FragLength = 0xd0
-	bindPacket.RPCHead.AuthLength = 0x28
-	bindPacket.RPCBindTail.NegotiateFlags = 0xa2088297
-	prepBytes := bindPacket.Bytes()
+	ctxList := rpce.NewPcontextList()
+	ctxList.AddContext(rpce.NewPcontextElem(
+		0,
+		rpce.NewPSyntaxID(uuid.IID_IRemUnknown2, 0),
+		[]rpce.PSyntaxID{
+			rpce.NewPSyntaxID(uuid.NDRTransferSyntax_V2, 2),
+		},
+	))
+
+	ctxList.AddContext(rpce.NewPcontextElem(
+		1,
+		rpce.NewPSyntaxID(uuid.IID_IRemUnknown2, 0),
+		[]rpce.PSyntaxID{
+			rpce.NewPSyntaxID(uuid.NDR64TransferSyntax, 0x01000000),
+		},
+	))
+
+	ctxList.AddContext(rpce.NewPcontextElem(
+		0x0200, //unsure of the signifigance of this value..
+		rpce.NewPSyntaxID(uuid.IID_IRemUnknown2, 0),
+		[]rpce.PSyntaxID{
+			rpce.NewPSyntaxID(uuid.BindTimeFeatureReneg, 0x01000000),
+		},
+	))
+
+	n := ntlmssp.NewSSPNegotiate(0xa2088297) //todo: make this flags... see Auth() (note, different value!!)
+	auth := rpce.NewAuthVerifier(
+		rpce.RPC_C_AUTHN_WINNT,
+		rpce.RPC_C_AUTHN_LEVEL_PKT,
+		0,
+		n.Bytes(),
+	)
+	bindPacket := rpce.NewBindReq(2, ctxList, &auth)
+
 	recv := make([]byte, 2048)
-	e.tcpClient.Write(prepBytes)
-	lenRead, _ := e.tcpClient.Read(recv)
+	e.tcpClient.Write(bindPacket.Bytes())
+	e.tcpClient.Read(recv)
 
-	e.assGroup = binary.LittleEndian.Uint32(recv[20:24])
-	index := bytes.Index(recv, []byte("NTLMSSP"))
-	nameLen := binary.LittleEndian.Uint16(recv[index+12 : index+14])
-	tgtLen := binary.LittleEndian.Uint16(recv[index+40 : index+42])
+	rsp := rpce.ParseBindAck(recv)
 
-	ntlmChal := recv[index+24 : index+32]
-	deets := recv[index+56+int(nameLen) : index+56+int(nameLen)+int(tgtLen)]
-	timebytes := recv[lenRead-12 : lenRead-4]
+	//e.assGroup = binary.LittleEndian.Uint32(recv[20:24])
+	e.assGroup = rsp.AssocGroupID
+	challengeInfo := ntlmssp.ParseSSPChallenge(rsp.AuthVerifier.AuthValue)
+	ntlmChal := challengeInfo.ServerChallenge[:]
+	deets := challengeInfo.Payload.GetTargetInfoBytes()
+	timebytes := challengeInfo.Payload.GetTimeBytes()
+
 	hostname := e.config.clientHostname
+
 	domain := []byte(e.config.domain)
 	uniuser, err := toUnicodeS(e.config.username)
 	if err != nil {
@@ -414,50 +432,23 @@ func (e *wmiExecer) RPCConnect() error {
 	}
 
 	ntlmResp := NTLMV2Response(key1, ntlmChal, timebytes, deets)
+	sspResp := ntlmssp.NewSSPAuthenticate(ntlmResp, domain, username, []byte(hostname), nil).Bytes()
 
-	userOffset := uint32ToBytes(uint32(len(domain) + 64))
-	hostOffset := uint32ToBytes(uint32(len(domain) + len(username) + 64))
-	lmOffset := uint32ToBytes(uint32(len(domain) + len(username) + len(hostname) + 64))
-	ntlmOffset := uint32ToBytes(uint32(len(domain) + len(username) + len(hostname) + 88))
-	sessionKeyOffset := uint32ToBytes(uint32(len(domain) + len(username) + len(hostname) + len(ntlmResp) + 88))
+	packetAuth := rpce.NewAuth3Req(3, rpce.RPC_C_AUTHN_LEVEL_PKT, sspResp)
 
-	sspResp := []byte{0x4e, 0x54, 0x4c, 0x4d, 0x53, 0x53, 0x50, 0x00, 0x03, 0x00, 0x00, 0x00, 0x18, 0x00, 0x18, 0x00}
-	sspResp = append(sspResp, lmOffset...)
-	//these double up as 'maxlen'
-	sspResp = append(sspResp, uint16ToBytes(uint16(len(ntlmResp)))...)
-	sspResp = append(sspResp, uint16ToBytes(uint16(len(ntlmResp)))...)
-	sspResp = append(sspResp, ntlmOffset...)
+	e.tcpClient.Write(packetAuth.Bytes())
 
-	sspResp = append(sspResp, uint16ToBytes(uint16(len(domain)))...)
-	sspResp = append(sspResp, uint16ToBytes(uint16(len(domain)))...)
-	sspResp = append(sspResp, 0x40, 0, 0, 0)
-
-	sspResp = append(sspResp, uint16ToBytes(uint16(len(username)))...)
-	sspResp = append(sspResp, uint16ToBytes(uint16(len(username)))...)
-	sspResp = append(sspResp, userOffset...)
-
-	sspResp = append(sspResp, uint16ToBytes(uint16(len(hostname)))...)
-	sspResp = append(sspResp, uint16ToBytes(uint16(len(hostname)))...)
-	sspResp = append(sspResp, hostOffset...)
-
-	//session key length
-	sspResp = append(sspResp, 0, 0, 0, 0)
-	sspResp = append(sspResp, sessionKeyOffset...)
-
-	//negotiate flags
-	sspResp = append(sspResp, 0x15, 0x82, 0x88, 0xa2)
-
-	sspResp = append(sspResp, domain...)
-	sspResp = append(sspResp, username...)
-	sspResp = append(sspResp, hostname...)
-	sspResp = append(sspResp, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00)
-	sspResp = append(sspResp, ntlmResp...)
-
-	packetAuth := NewPacketRPCAuth3(2, rpce.RPC_C_AUTHN_LEVEL_PKT, sspResp)
-
-	prepBytes2 := packetAuth.Bytes()
-	e.tcpClient.Write(prepBytes2)
-	packetRPC := NewPacketRPCRequest(0x83, 76, 16, 4, 2, 0, 3, e.objectUUID)
+	packetRPC := NewPacketRPCRequest(
+		0x83,         //flags
+		76,           //svc len
+		16,           //authlen
+		4,            //authpad
+		2,            //callid
+		0,            //contextid
+		3,            //opnum
+		e.objectUUID) //data
+	//CHCKEPOINT
+	//packetRPC := rpce.NewRequestReq(2, 0, 3, e.objectUUID, nil)
 
 	packetRemQ := NewPacketDCOMRemQueryInterface(e.causality, e.ipid, uuid.IID_IWbemLoginClientID[:])
 	ntlmVer := NewPacketNTLMSSPVerifier(4, 4, 0)
@@ -484,7 +475,7 @@ func (e *wmiExecer) RPCConnect() error {
 	wmiClientSend = append(wmiClientSend, ntlmVer.Bytes()...)
 	e.tcpClient.Write(wmiClientSend)
 	recv3 := make([]byte, 2048)
-	lenRead, _ = e.tcpClient.Read(recv3)
+	e.tcpClient.Read(recv3)
 
 	hdr := RPCHead{}
 	binary.Read(bytes.NewReader(recv3), binary.LittleEndian, &hdr)
