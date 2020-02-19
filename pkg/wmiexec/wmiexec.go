@@ -312,8 +312,7 @@ func (e *wmiExecer) Auth() error {
 	e.tcpClient.Read(recv3)
 
 	if recv3[2] == 3 {
-		pf := PacketFault{}
-		binary.Read(bytes.NewReader(recv3), binary.LittleEndian, &pf)
+		pf := rpce.ParseFault(recv3)
 		e.log.Error("Error: ", pf.StatusString(), " ", pf.Status)
 		return errors.New(pf.StatusString())
 	}
@@ -477,8 +476,7 @@ func (e *wmiExecer) RPCConnect() error {
 	resp := rpce.ParseResponse(recv3)
 
 	if resp.CommonHead.PacketType == 3 {
-		pf := PacketFault{}
-		binary.Read(bytes.NewReader(recv3), binary.LittleEndian, &pf)
+		pf := rpce.ParseFault(recv3)
 		//log maybe
 		e.log.Error("Error: ", pf.StatusString(), pf.Status)
 		return errors.New(pf.StatusString())
@@ -508,8 +506,7 @@ func (e *wmiExecer) Exec(command string) error {
 	resp := make([]byte, 2048)
 	for e.stage != "exit" {
 		if resp[2] == 3 {
-			pf := PacketFault{}
-			binary.Read(bytes.NewReader(resp), binary.LittleEndian, &pf)
+			pf := rpce.ParseFault(resp)
 			e.log.Error("Error: ", pf.StatusString(), pf.Status)
 			return errors.New(pf.StatusString())
 		}
