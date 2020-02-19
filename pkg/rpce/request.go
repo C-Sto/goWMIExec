@@ -8,13 +8,13 @@ import (
 type RequestReq struct { //poorly named, I'm aware
 	CommonHead   CommonHead
 	AllocHint    uint32
-	PContextID   ContextID
+	PContextID   uint16
 	Opnum        uint16
 	StubData     []byte
 	AuthVerifier *AuthVerifier
 }
 
-func NewRequestReq(callID uint32, ctxID ContextID, opNum uint16, data []byte, auth *AuthVerifier) RequestReq {
+func NewRequestReq(callID uint32, ctxID uint16, opNum uint16, data []byte, auth *AuthVerifier) RequestReq {
 	r := RequestReq{}
 	//todo, don't hard code ptype
 	r.CommonHead = NewCommonHeader(0, 0x03, callID)

@@ -25,7 +25,6 @@ import (
 	"time"
 
 	"go.uber.org/zap"
-	"golang.org/x/crypto/md4"
 	"golang.org/x/text/encoding/unicode"
 )
 
@@ -287,7 +286,7 @@ func (e *wmiExecer) Auth() error {
 	}
 	username := []byte(uniuser)
 
-	key1, err := NTLMV2Hash(e.config.password, string(e.config.hash), e.config.username, string(e.config.domain), e.logProper)
+	key1, err := ntlmssp.NTLMV2Hash(e.config.password, string(e.config.hash), e.config.username, string(e.config.domain))
 	if err != nil {
 		return err
 	}
@@ -475,9 +474,9 @@ func (e *wmiExecer) RPCConnect() error {
 	recv3 := make([]byte, 2048)
 	e.tcpClient.Read(recv3)
 
-	hdr := RPCHead{}
-	binary.Read(bytes.NewReader(recv3), binary.LittleEndian, &hdr)
-	if recv3[2] == 3 {
+	resp := rpce.ParseResponse(recv3)
+
+	if resp.CommonHead.PacketType == 3 {
 		pf := PacketFault{}
 		binary.Read(bytes.NewReader(recv3), binary.LittleEndian, &pf)
 		//log maybe
@@ -486,9 +485,9 @@ func (e *wmiExecer) RPCConnect() error {
 	}
 
 	e.objUUID2 = make([]byte, 16)
-	if recv3[2] == 2 {
-		oxidInd := bytes.Index(recv3, e.oxid)
-		e.objUUID2 = recv3[oxidInd+16 : oxidInd+32]
+	if resp.CommonHead.PacketType == 2 {
+		oxidInd := bytes.Index(resp.StubData, e.oxid)
+		e.objUUID2 = resp.StubData[oxidInd+16 : oxidInd+32]
 		e.stage = "AlterContext"
 	} else {
 		return fmt.Errorf("Did not receive expected value. Wanted 2, got %d", recv3[2])
@@ -502,12 +501,10 @@ func (e *wmiExecer) Exec(command string) error {
 
 	sequence := uint32(0)
 
-	var rqFlags byte
 	var stubData, ipid2 []byte
-	var callID, reqLen uint32
+	var callID uint32
 	var contextID, opNum, authPadding uint16
 	var rqUUID []byte
-	var reqSplit bool
 	resp := make([]byte, 2048)
 	for e.stage != "exit" {
 		if resp[2] == 3 {
@@ -520,7 +517,7 @@ func (e *wmiExecer) Exec(command string) error {
 		case "AlterContext":
 			acID := uint32(0)
 			acConID := uint16(0)
-			acUUID := [16]byte{}
+			acUUID := uuid.UUID{}
 
 			switch sequence {
 			case 0:
@@ -538,7 +535,19 @@ func (e *wmiExecer) Exec(command string) error {
 				acUUID = uuid.IID_IWbemServices
 			}
 
-			packetRPC := NewPacketRPCAlterContext(acID, e.assGroup, acConID, acUUID[:])
+			ctxList := rpce.NewPcontextList()
+			ctxList.AddContext(rpce.NewPcontextElem(
+				acConID,
+				rpce.NewPSyntaxID(acUUID, 0),
+				[]rpce.PSyntaxID{
+					rpce.NewPSyntaxID(uuid.NDRTransferSyntax_V2, 2),
+				},
+			))
+			packetRPC := rpce.NewAlterContextReq(
+				acID,
+				e.assGroup,
+				ctxList,
+				nil)
 			e.tcpClient.Write(packetRPC.Bytes())
 			resp = make([]byte, 2048)
 			e.tcpClient.Read(resp)
@@ -546,11 +555,9 @@ func (e *wmiExecer) Exec(command string) error {
 
 		case "Request":
 			nextStage := "Request"
-			rqFlags = 0x83
 			switch sequence {
 			case 0:
 				sequence = 1
-				rqFlags = 0x83
 				authPadding = 12
 				callID = 3
 				contextID = 2
@@ -609,7 +616,6 @@ func (e *wmiExecer) Exec(command string) error {
 
 			case 1:
 				sequence = 2
-				rqFlags = 0x83
 				authPadding = 8
 				callID = 4
 				contextID = 3
@@ -763,44 +769,39 @@ func (e *wmiExecer) Exec(command string) error {
 				if len(stubData) > 5500 {
 					return fmt.Errorf("Long request packet not yet implemented. Needed below 5500, got %d", len(stubData))
 				}
-				rqFlags = 0x83
 				nextStage = "Result"
 			}
 
-			packetRPC := NewPacketRPCRequest(rqFlags, uint16(len(stubData)), 16, authPadding, callID, contextID, opNum, rqUUID)
-			if reqSplit {
-				packetRPC.ReqHead.AllocHint = reqLen
-			}
+			authv := rpce.NewAuthVerifier(0x0a, 4, 0, byte(authPadding), make([]byte, 16))
+			packetRPC := rpce.NewRequestReq(callID, contextID, opNum, append(rqUUID, stubData...), &authv)
+			packetRPC.CommonHead.PFCFlags = 0x83
 
-			pktNTLMSSP := NewPacketNTLMSSPVerifier(byte(authPadding), 4, sequence)
-			rpc := packetRPC.Bytes()
-			ntlmsspVer := pktNTLMSSP.Bytes()
+			rpc := packetRPC.Bytes()[:len(packetRPC.Bytes())-16]
 			rpcSign := make([]byte, 4)
 			binary.LittleEndian.PutUint32(rpcSign, sequence)
 			rpcSign = append(rpcSign, rpc...)
-			rpcSign = append(rpcSign, stubData...)
-			rpcSign = append(rpcSign, ntlmsspVer[:authPadding+8]...)
+
 			hmacer := hmac.New(md5.New, e.clientSigningKey)
 			hmacer.Write(rpcSign)
 			rpcSig := hmacer.Sum(nil)
-			copy(pktNTLMSSP.SSPVerifierBody.NTLMSSPVerifierChecksum[:], rpcSig)
-			ntlmsspVer = pktNTLMSSP.Bytes()
 
-			wmiSend := append(rpc, stubData...)
-			wmiSend = append(wmiSend, ntlmsspVer...)
+			messagesig := ntlmssp.MessageSignatureExtended{
+				Version: 1,
+				SeqNum:  sequence,
+			}
+			copy(messagesig.Checksum[:], rpcSig)
+			authv.AuthValue = messagesig.Bytes()
+
+			wmiSend := packetRPC.Bytes()
 			e.tcpClient.Write(wmiSend)
 
-			if reqSplit {
-				return fmt.Errorf("Long request packet not yet implemented. Should have errored earlier due to split requirement, stub data len is %d", len(stubData))
-			}
-
 			//reads 16 bytes
-			hdr := RPCHead{}
-			for hdr.PacketFlags&byte(PacketFlagLastFrag) == 0 {
+			hdr := rpce.Response{}
+			for hdr.CommonHead.PFCFlags&rpce.PFCLastFrag == 0 {
 				hbuff := make([]byte, 16)
 				n, err := e.tcpClient.Read(hbuff)
-				binary.Read(bytes.NewReader(hbuff), binary.LittleEndian, &hdr)
-				buff := make([]byte, hdr.FragLength-16)
+				hdr = rpce.ParseResponse(hbuff)
+				buff := make([]byte, hdr.CommonHead.FragLength-16)
 				n, err = e.tcpClient.Read(buff)
 				n = n + 16
 				resp = append(hbuff, buff...)
@@ -809,8 +810,8 @@ func (e *wmiExecer) Exec(command string) error {
 					return err
 				}
 
-				if uint16(n) < hdr.FragLength {
-					buff := make([]byte, hdr.FragLength-uint16(n))
+				if uint16(n) < hdr.CommonHead.FragLength {
+					buff := make([]byte, hdr.CommonHead.FragLength-uint16(n))
 					e.tcpClient.Read(buff)
 					resp = append(resp, buff...)
 				}
@@ -884,6 +885,7 @@ func uint32ToBytes(v uint32) []byte {
 	return b
 }
 
+/**/
 func NTLMV2Response(hash, servChal, timestamp, targetInfo []byte) []byte {
 
 	v := []byte{1, 1, 0, 0, 0, 0, 0, 0}
@@ -901,31 +903,6 @@ func NTLMV2Response(hash, servChal, timestamp, targetInfo []byte) []byte {
 	mac.Write(v)
 	hmacVal := mac.Sum(nil)
 	return append(hmacVal, v...)
-}
-
-//NTLMV2Hash returns the NTLMV2 hash provided a password or hash (if both are provided, the hash takes precidence), username and target info
-func NTLMV2Hash(password, hash, username, target string, log *zap.Logger) ([]byte, error) {
-	if hash == "" {
-		h := md4.New()
-		unipw, err := toUnicodeS(password)
-		if err != nil {
-			return nil, err
-		}
-		h.Write([]byte(unipw))
-		hash = hex.EncodeToString(h.Sum(nil))
-	}
-	log.Sugar().Info("Authenticating with the hash value: ", hash)
-	hashBytes, err := hex.DecodeString(hash)
-	if err != nil {
-		return nil, err
-	}
-	mac := hmac.New(md5.New, hashBytes)
-	idkman, err := toUnicodeS(strings.ToUpper(username) + target)
-	if err != nil {
-		return nil, err
-	}
-	mac.Write([]byte(idkman))
-	return mac.Sum(nil), nil
 }
 
 func toUnicodeS(s string) (string, error) {
