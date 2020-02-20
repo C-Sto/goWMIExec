@@ -2,8 +2,6 @@ package wmiexec
 
 import (
 	"bytes"
-	"crypto/hmac"
-	"crypto/md5"
 	"errors"
 	"io"
 
@@ -165,8 +163,6 @@ func (e *wmiExecer) Connect() error {
 		return errors.New("Got an unexpected response. Wanted 12 (0x0c) got ")
 	}
 
-	e.log.Info("Successfully connected to host and sent a bind request")
-
 	//cool, can we auth?
 	packetRPCReq := rpce.NewRequestReq(2, 0, 5, nil, nil)
 	e.tcpClient.Write(packetRPCReq.Bytes())
@@ -229,36 +225,16 @@ func (e *wmiExecer) Auth() error {
 		},
 	))
 
-	n := ntlmssp.NewSSPNegotiate(0xa2088207) //todo: make this flags... value below
-	/*
-			Name	Value	Bit Offset	Bit Length	Type
-		NTLMSSP_NEGOTIATE_UNICODE	(...............................1)	96	1
-		NTLM_NEGOTIATE_OEM	(..............................1.)	97	1
-		NTLMSSP_REQUEST_TARGET	(.............................1..)	98	1
-		NTLMSSP_NEGOTIATE_SIGN	(...........................0....)	100	1
-		NTLMSSP_NEGOTIATE_SEAL	(..........................0.....)	101	1
-		NTLMSSP_NEGOTIATE_DATAGRAM	(.........................0......)	102	1
-		NTLMSSP_NEGOTIATE_LM_KEY	(........................0.......)	103	1
-		NTLMSSP_NEGOTIATE_NTLM	(......................1.........)	105	1
-		NTLMSSP_ANONYMOUS_CONNECTIONS	(....................0...........)	107	1
-		NTLMSSP_NEGOTIATE_OEM_DOMAIN_SUPPLIED	(...................0............)	108	1
-		NTLMSSP_NEGOTIATE_OEM_WORKSTATION_SUPPLIED	(..................0.............)	109	1
-		NTLMSSP_NEGOTIATE_ALWAYS_SIGN	(................1...............)	111	1
-		NTLMSSP_TARGET_TYPE_DOMAIN	(...............0................)	112	1
-		NTLMSSP_TARGET_TYPE_SERVER	(..............0.................)	113	1
-		NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY	(............1...................)	115	1
-		NTLMSSP_NEGOTIATE_IDENTIFY	(...........0....................)	116	1
-		NTLMSSP_REQUEST_NON_NT_SESSION_KEY	(.........0......................)	118	1
-		NTLMSSP_NEGOTIATE_TARGET_INFO	(........0.......................)	119	1
-		NTLMSSP_NEGOTIATE_VERSION	(......1.........................)	121	1
-		NTLMSSP_NEGOTIATE_128	(..1.............................)	125	1
-		NTLMSSP_NEGOTIATE_KEY_EXCH	(.0..............................)	126	1
-		NTLMSSP_NEGOTIATE_56	(1...............................)	127	1
-	*/
+	flags := ntlmssp.NTLMSSP_NEGOTIATE_UNICODE | ntlmssp.NTLM_NEGOTIATE_OEM |
+		ntlmssp.NTLMSSP_REQUEST_TARGET | ntlmssp.NTLMSSP_NEGOTIATE_NTLM |
+		ntlmssp.NTLMSSP_NEGOTIATE_ALWAYS_SIGN | ntlmssp.NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY |
+		ntlmssp.NTLMSSP_NEGOTIATE_VERSION | ntlmssp.NTLMSSP_NEGOTIATE_128 |
+		ntlmssp.NTLMSSP_NEGOTIATE_56
+	n := ntlmssp.NewSSPNegotiate(flags) //todo: make this flags... value below
+
 	auth := rpce.NewAuthVerifier(
 		rpce.RPC_C_AUTHN_WINNT,
 		rpce.RPC_C_AUTHN_LEVEL_CONNECT,
-		0,
 		0,
 		n.Bytes(),
 	)
@@ -291,7 +267,7 @@ func (e *wmiExecer) Auth() error {
 		return err
 	}
 
-	ntlmResp := NTLMV2Response(key1, ntlmChal, timebytes, deets)
+	ntlmResp := ntlmssp.NTLMV2Response(key1, ntlmChal, timebytes, deets)
 	sspResp := ntlmssp.NewSSPAuthenticate(ntlmResp, domain, username, []byte(hostname), nil).Bytes()
 
 	packetAuth := rpce.NewAuth3Req(3, rpce.RPC_C_AUTHN_LEVEL_CONNECT, sspResp)
@@ -362,12 +338,14 @@ func (e *wmiExecer) Auth() error {
 func (e *wmiExecer) RPCConnect() error {
 	var err error
 	e.log.Infof("Connecting to %s:%d", e.config.targetAddress[:strings.Index(e.config.targetAddress, ":")], e.targetRPCPort)
+
+	//this is 'intentionally' left open (no deferred close!). This is the channel we send stuff on after RPC has been connected, so it needs to persist.
+	//I should probably determine a better way to make sure it closes gracefully. Alas.
 	e.tcpClient, err = net.Dial("tcp", fmt.Sprintf("%s:%d", e.config.targetAddress[:strings.Index(e.config.targetAddress, ":")], e.targetRPCPort))
 	if err != nil {
 		e.log.Error("Error: ", err.Error())
 		return err
 	}
-	//lol always open tcp
 
 	ctxList := rpce.NewPcontextList()
 	ctxList.AddContext(rpce.NewPcontextElem(
@@ -394,11 +372,17 @@ func (e *wmiExecer) RPCConnect() error {
 		},
 	))
 
-	n := ntlmssp.NewSSPNegotiate(0xa2088297) //todo: make this flags... see Auth() (note, different value!!)
+	flags := ntlmssp.NTLMSSP_NEGOTIATE_UNICODE | ntlmssp.NTLM_NEGOTIATE_OEM |
+		ntlmssp.NTLMSSP_REQUEST_TARGET | ntlmssp.NTLMSSP_NEGOTIATE_SIGN |
+		ntlmssp.NTLMSSP_NEGOTIATE_LM_KEY | ntlmssp.NTLMSSP_NEGOTIATE_NTLM |
+		ntlmssp.NTLMSSP_NEGOTIATE_ALWAYS_SIGN | ntlmssp.NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY |
+		ntlmssp.NTLMSSP_NEGOTIATE_VERSION | ntlmssp.NTLMSSP_NEGOTIATE_128 |
+		ntlmssp.NTLMSSP_NEGOTIATE_56
+	n := ntlmssp.NewSSPNegotiate(flags)
+
 	auth := rpce.NewAuthVerifier(
 		rpce.RPC_C_AUTHN_WINNT,
 		rpce.RPC_C_AUTHN_LEVEL_PKT,
-		0,
 		0,
 		n.Bytes(),
 	)
@@ -431,42 +415,24 @@ func (e *wmiExecer) RPCConnect() error {
 		return err
 	}
 
-	ntlmResp := NTLMV2Response(key1, ntlmChal, timebytes, deets)
+	ntlmResp := ntlmssp.NTLMV2Response(key1, ntlmChal, timebytes, deets)
 	sspResp := ntlmssp.NewSSPAuthenticate(ntlmResp, domain, username, []byte(hostname), nil).Bytes()
-
 	packetAuth := rpce.NewAuth3Req(3, rpce.RPC_C_AUTHN_LEVEL_PKT, sspResp)
 
 	e.tcpClient.Write(packetAuth.Bytes())
 
 	packetRemQ := NewPacketDCOMRemQueryInterface(e.causality, e.ipid, uuid.IID_IWbemLoginClientID[:])
-	authv := rpce.NewAuthVerifier(0x0a, 4, 0, 4, make([]byte, 16))
+
+	//the empty value at the end is a placeholder for the message signature struct, to ensure the length offsets are all correct.
+	authv := rpce.NewAuthVerifier(0x0a, 4, 0, make([]byte, 16))
 
 	packetRPC := rpce.NewRequestReq(2, 0, 3, append(e.objectUUID, packetRemQ.Bytes()...), &authv)
 	packetRPC.CommonHead.PFCFlags = 0x83
 
-	//~~~~~~~~~~ DONT TOUCH UNLESS YOU LIKE SINKING HOURS DEBUGGING BUT ALSO THIS SHOULD BE MOVED TO SSP PACKAGE
-	rpcSign := append([]byte{0, 0, 0, 0}, packetRPC.Bytes()[:len(packetRPC.Bytes())-16]...)
-	mac := hmac.New(md5.New, key1)
-	mac.Write(ntlmResp[:mac.Size()])
-	sessionBase := mac.Sum(nil)
-	//signingConst := "session key to client-to-server signing key magic constant.\x00" //what on earth was MS smoking
-	signingConst := []byte{0x73, 0x65, 0x73, 0x73, 0x69, 0x6f, 0x6e, 0x20, 0x6b, 0x65, 0x79, 0x20, 0x74, 0x6f, 0x20, 0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x2d, 0x74, 0x6f, 0x2d, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x20, 0x73, 0x69, 0x67, 0x6e, 0x69, 0x6e, 0x67, 0x20, 0x6b, 0x65, 0x79, 0x20, 0x6d, 0x61, 0x67, 0x69, 0x63, 0x20, 0x63, 0x6f, 0x6e, 0x73, 0x74, 0x61, 0x6e, 0x74, 0x00}
-	md5er := md5.New()
-	md5er.Write(append(sessionBase, signingConst...))
-	e.clientSigningKey = md5er.Sum(nil)
-	md5er.Reset()
+	e.clientSigningKey = ntlmssp.GenerateClientSigningKey(key1, ntlmResp)
 
-	hmacer := hmac.New(md5.New, e.clientSigningKey)
-	hmacer.Write(rpcSign)
-	sig := hmacer.Sum(nil)[:8]
-	//~~~~~~~~~~ OK YOU CAN TOUCH AGAIN
+	messagesig := ntlmssp.NewMessageSignature(packetRPC.AuthBytes(), e.clientSigningKey, 0)
 
-	messagesig := ntlmssp.MessageSignatureExtended{
-		Version: 1,
-		//Checksum: sig,
-		SeqNum: 0,
-	}
-	copy(messagesig.Checksum[:], sig)
 	authv.AuthValue = messagesig.Bytes()
 	wmiClientSend := packetRPC.Bytes()
 	e.tcpClient.Write(wmiClientSend)
@@ -501,7 +467,7 @@ func (e *wmiExecer) Exec(command string) error {
 
 	var stubData, ipid2 []byte
 	var callID uint32
-	var contextID, opNum, authPadding uint16
+	var contextID, opNum uint16
 	var rqUUID []byte
 	resp := make([]byte, 2048)
 	for e.stage != "exit" {
@@ -555,7 +521,6 @@ func (e *wmiExecer) Exec(command string) error {
 			switch sequence {
 			case 0:
 				sequence = 1
-				authPadding = 12
 				callID = 3
 				contextID = 2
 				opNum = 3
@@ -563,19 +528,6 @@ func (e *wmiExecer) Exec(command string) error {
 				s, ee := unicode.UTF16(unicode.LittleEndian, unicode.IgnoreBOM).NewDecoder().String(e.config.clientHostname)
 				if ee != nil {
 					panic(e)
-				}
-
-				//this is an extremely gross hack, due to the fact I don't understand how dcom/dcerpc packets need to be formatted for this specific call.
-				//there is a weird bug to do with lengths here. awgh and myself spent a long time trying to work out wtf is going on, alas, dcom has beaten us for now
-				if len(s) != 15 {
-					newName := RandStringBytesMaskImprSrcSB(15)
-					ns, err := unicode.UTF16(unicode.LittleEndian, unicode.IgnoreBOM).NewEncoder().String(newName)
-					if err != nil {
-						panic("why me")
-					}
-					e.log.Infof("name length not 15, got %d. Converting to %s (was %s)", len(e.config.clientHostname), newName, s)
-					e.config.clientHostname = ns
-					s = newName
 				}
 
 				hnLen := uint32(len(s) + 1)
@@ -607,24 +559,19 @@ func (e *wmiExecer) Exec(command string) error {
 				rand.Read(pid)
 				stubData = append(stubData, pid...)           //pid (ofc)
 				stubData = append(stubData, 0, 0, 0, 0, 0, 0) //6 bytes of null?
-				e.log.Info("Stub Len: ", len(stubData))
 				nextStage = "AlterContext"
-				//expected = 64
 
 			case 1:
 				sequence = 2
-				authPadding = 8
 				callID = 4
 				contextID = 3
 				rqUUID = e.ipid
 				stubData = []byte{0x05, 0x00, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
 				stubData = append(stubData, e.causality...)
 				stubData = append(stubData, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00)
-				//expected = 64
 
 			case 2:
 				sequence = 3
-				authPadding = 0
 				callID = 5
 				contextID = 3
 				opNum = 6
@@ -647,11 +594,9 @@ func (e *wmiExecer) Exec(command string) error {
 				stubData = append(stubData, hnLenByte...)
 				stubData = append(stubData, wmiNameUni...)
 				stubData = append(stubData, 0x04, 0x00, 0x02, 0x00, 0x09, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x09, 0x00, 0x00, 0x00, 0x65, 0x00, 0x6e, 0x00, 0x2d, 0x00, 0x55, 0x00, 0x53, 0x00, 0x2c, 0x00, 0x65, 0x00, 0x6e, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00)
-				//expected = 256
 
 			case 3:
 				sequence = 4
-				authPadding = 8
 				contextID = 0
 				callID = 6
 				opNum = 5
@@ -660,22 +605,18 @@ func (e *wmiExecer) Exec(command string) error {
 				ipid2 = resp[oxidID+16 : oxidID+32]
 				pktMemRelease := NewPacketDCOMMemRelease(e.causality, e.objUUID2, e.ipid)
 				stubData = pktMemRelease.Bytes()
-				//expected = 64
 
 			case 4:
 				sequence = 5
-				authPadding = 4
 				contextID = 0
 				callID = 7
 				opNum = 3
 				rqUUID = e.objectUUID
 				remqry := NewPacketDCOMRemQueryInterface(e.causality, ipid2, []byte{0x9e, 0xc1, 0xfc, 0xc3, 0x70, 0xa9, 0xd2, 0x11, 0x8b, 0x5a, 0x00, 0xa0, 0xc9, 0xb7, 0xc9, 0xc4})
 				stubData = remqry.Bytes()
-				//expected = 128
 
 			case 5:
 				sequence = 6
-				authPadding = 4
 				callID = 8
 				contextID = 0
 				opNum = 3
@@ -683,11 +624,9 @@ func (e *wmiExecer) Exec(command string) error {
 				nextStage = "AlterContext"
 				remqry := NewPacketDCOMRemQueryInterface(e.causality, ipid2, []byte{0x83, 0xb2, 0x96, 0xb1, 0xb4, 0xba, 0x1a, 0x10, 0xb6, 0x9c, 0x00, 0xaa, 0x00, 0x34, 0x1d, 0x07})
 				stubData = remqry.Bytes()
-				//expected = 128
 
 			case 6:
 				sequence = 7
-				authPadding = 0
 				callID = 9
 				contextID = 4
 				opNum = 6
@@ -695,11 +634,9 @@ func (e *wmiExecer) Exec(command string) error {
 				stubData = []byte{0x05, 0x00, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
 				stubData = append(stubData, e.causality...)
 				stubData = append(stubData, 0x00, 0x00, 0x00, 0x00, 0x55, 0x73, 0x65, 0x72, 0x0d, 0x00, 0x00, 0x00, 0x1a, 0x00, 0x00, 0x00, 0x0d, 0x00, 0x00, 0x00, 0x77, 0x00, 0x69, 0x00, 0x6e, 0x00, 0x33, 0x00, 0x32, 0x00, 0x5f, 0x00, 0x70, 0x00, 0x72, 0x00, 0x6f, 0x00, 0x63, 0x00, 0x65, 0x00, 0x73, 0x00, 0x73, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00)
-				//expected = 22064
 
 			case 7:
 				sequence = 8
-				authPadding = 0
 				callID = 0x10
 				contextID = 4
 				opNum = 6
@@ -714,7 +651,6 @@ func (e *wmiExecer) Exec(command string) error {
 				}
 
 				sequence = 9
-				authPadding = 0
 				contextID = 4
 				callID = 0x0b
 				opNum = 0x18
@@ -769,24 +705,11 @@ func (e *wmiExecer) Exec(command string) error {
 				nextStage = "Result"
 			}
 
-			authv := rpce.NewAuthVerifier(0x0a, 4, 0, byte(authPadding), make([]byte, 16))
+			authv := rpce.NewAuthVerifier(0x0a, 4, 0, make([]byte, 16))
 			packetRPC := rpce.NewRequestReq(callID, contextID, opNum, append(rqUUID, stubData...), &authv)
 			packetRPC.CommonHead.PFCFlags = 0x83
 
-			rpc := packetRPC.Bytes()[:len(packetRPC.Bytes())-16]
-			rpcSign := make([]byte, 4)
-			binary.LittleEndian.PutUint32(rpcSign, sequence)
-			rpcSign = append(rpcSign, rpc...)
-
-			hmacer := hmac.New(md5.New, e.clientSigningKey)
-			hmacer.Write(rpcSign)
-			rpcSig := hmacer.Sum(nil)
-
-			messagesig := ntlmssp.MessageSignatureExtended{
-				Version: 1,
-				SeqNum:  sequence,
-			}
-			copy(messagesig.Checksum[:], rpcSig)
+			messagesig := ntlmssp.NewMessageSignature(packetRPC.AuthBytes(), e.clientSigningKey, sequence)
 			authv.AuthValue = messagesig.Bytes()
 
 			wmiSend := packetRPC.Bytes()
@@ -870,71 +793,10 @@ func WMIExec(target, username, password, hash, domain, command, clientHostname s
 
 }
 
-func uint16ToBytes(v uint16) []byte {
-	b := []byte{0, 0}
-	binary.LittleEndian.PutUint16(b, v)
-	return b
-}
-
-func uint32ToBytes(v uint32) []byte {
-	b := []byte{0, 0, 0, 0}
-	binary.LittleEndian.PutUint32(b, v)
-	return b
-}
-
-/**/
-func NTLMV2Response(hash, servChal, timestamp, targetInfo []byte) []byte {
-
-	v := []byte{1, 1, 0, 0, 0, 0, 0, 0}
-	v = append(v, timestamp...)
-	chal := make([]byte, 8)
-	rand.Seed(time.Now().UnixNano())
-	rand.Read(chal)
-	v = append(v, chal...)
-	v = append(v, 0, 0, 0, 0)
-	v = append(v, targetInfo...)
-	v = append(v, 0, 0, 0, 0, 0, 0, 0, 0)
-
-	mac := hmac.New(md5.New, hash)
-	mac.Write(servChal)
-	mac.Write(v)
-	hmacVal := mac.Sum(nil)
-	return append(hmacVal, v...)
-}
-
 func toUnicodeS(s string) (string, error) {
 	s, e := unicode.UTF16(unicode.LittleEndian, unicode.IgnoreBOM).NewEncoder().String(s)
 	if e != nil {
 		return "", e
 	}
 	return s, nil
-}
-
-//https://stackoverflow.com/questions/22892120/how-to-generate-a-random-string-of-a-fixed-length-in-go
-
-const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-const (
-	letterIdxBits = 6                    // 6 bits to represent a letter index
-	letterIdxMask = 1<<letterIdxBits - 1 // All 1-bits, as many as letterIdxBits
-	letterIdxMax  = 63 / letterIdxBits   // # of letter indices fitting in 63 bits
-)
-
-func RandStringBytesMaskImprSrcSB(n int) string {
-	rand.NewSource(time.Now().UnixNano())
-	sb := strings.Builder{}
-	sb.Grow(n)
-	// A src.Int63() generates 63 random bits, enough for letterIdxMax characters!
-	for i, cache, remain := n-1, rand.Int63(), letterIdxMax; i >= 0; {
-		if remain == 0 {
-			cache, remain = rand.Int63(), letterIdxMax
-		}
-		if idx := int(cache & letterIdxMask); idx < len(letterBytes) {
-			sb.WriteByte(letterBytes[idx])
-			i--
-		}
-		cache >>= letterIdxBits
-		remain--
-	}
-
-	return sb.String()
 }

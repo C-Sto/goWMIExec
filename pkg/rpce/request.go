@@ -26,15 +26,38 @@ func NewRequestReq(callID uint32, ctxID uint16, opNum uint16, data []byte, auth 
 
 	r.AllocHint = 0 //idfk, I guess this should be the length of the data segment?
 
+	r.UpdateLengths()
+
+	return r
+}
+
+//UpdateLengths sets the commonheader.fraglength and .authlength values based on the current state of the object.
+func (r *RequestReq) UpdateLengths() {
 	r.CommonHead.FragLength = 24 //length of common header
 	r.CommonHead.FragLength += uint16(len(r.StubData))
 
 	if r.AuthVerifier != nil {
+		r.AuthVerifier.UpdatePadding(len(r.StubData) % 4)
 		r.CommonHead.FragLength += uint16(r.AuthVerifier.SizeOf())
 		r.CommonHead.AuthLength = uint16(len(r.AuthVerifier.AuthValue))
 	}
+}
 
-	return r
+func (r RequestReq) AuthBytes() []byte {
+
+	buff := bytes.Buffer{}
+	binary.Write(&buff, binary.LittleEndian, r.CommonHead)
+	binary.Write(&buff, binary.LittleEndian, r.AllocHint)
+	binary.Write(&buff, binary.LittleEndian, r.PContextID)
+	binary.Write(&buff, binary.LittleEndian, r.Opnum)
+	buff.Write(r.StubData)
+	if r.AuthVerifier != nil {
+		//this is a bit gross - the value is where the verifier gets put, and doesn't get included in the hashing scheme (obviously)
+		//but the length needs to be included in the common headers. Doing this makes sure if a value is set in the auth object, it's not returned as part of the request object.
+		buff.Write(r.AuthVerifier.Bytes()[:r.AuthVerifier.SizeOf()-r.AuthVerifier.ValueSize()])
+	}
+
+	return buff.Bytes()
 }
 
 func (r RequestReq) Bytes() []byte {

@@ -6,7 +6,9 @@ import (
 	"crypto/md5"
 	"encoding/binary"
 	"encoding/hex"
+	"math/rand"
 	"strings"
+	"time"
 
 	"golang.org/x/crypto/md4"
 	"golang.org/x/text/encoding/unicode"
@@ -15,7 +17,7 @@ import (
 type SSP_Negotiate struct {
 	Signature         [8]byte
 	MessageType       uint32
-	NegotiateFlags    uint32
+	NegotiateFlags    NegotiateFlag
 	DomainNameFields  SSP_FeildInformation
 	WorkstationFields SSP_FeildInformation
 	Version           Version
@@ -27,7 +29,7 @@ type NegotiatePayload struct {
 	WorkstationName []byte
 }
 
-func NewSSPNegotiate(flags uint32) SSP_Negotiate {
+func NewSSPNegotiate(flags NegotiateFlag) SSP_Negotiate {
 	r := SSP_Negotiate{}
 	//offset := uint32(64)
 	r.Signature = [8]byte{0x4e, 0x54, 0x4c, 0x4d, 0x53, 0x53, 0x50, 0x00}
@@ -254,11 +256,19 @@ func (m MessageSignatureExtended) Bytes() []byte {
 	return buff.Bytes()
 }
 
-func NewMessageSignature(sum [8]byte, seq uint32) MessageSignatureExtended {
+func (m *MessageSignatureExtended) SignValue(seq, value, key []byte) {
+	hmacer := hmac.New(md5.New, key)
+	hmacer.Write(append(seq, value...))
+	copy(m.Checksum[:], hmacer.Sum(nil))
+}
+
+func NewMessageSignature(value, key []byte, seq uint32) MessageSignatureExtended {
 	r := MessageSignatureExtended{}
 	r.Version = 1
-	r.Checksum = sum
 	r.SeqNum = seq
+	sq := []byte{0, 0, 0, 0}
+	binary.LittleEndian.PutUint32(sq, seq)
+	r.SignValue(sq, value, key)
 	return r
 }
 
@@ -292,4 +302,35 @@ func toUnicodeS(s string) (string, error) {
 		return "", e
 	}
 	return s, nil
+}
+
+func NTLMV2Response(hash, servChal, timestamp, targetInfo []byte) []byte {
+
+	v := []byte{1, 1, 0, 0, 0, 0, 0, 0}
+	v = append(v, timestamp...)
+	chal := make([]byte, 8)
+	rand.Seed(time.Now().UnixNano())
+	rand.Read(chal)
+	v = append(v, chal...)
+	v = append(v, 0, 0, 0, 0)
+	v = append(v, targetInfo...)
+	v = append(v, 0, 0, 0, 0, 0, 0, 0, 0)
+
+	mac := hmac.New(md5.New, hash)
+	mac.Write(servChal)
+	mac.Write(v)
+	hmacVal := mac.Sum(nil)
+	return append(hmacVal, v...)
+}
+
+func GenerateClientSigningKey(clientNTLMV2Hash, generatedNTLMV2Response []byte) []byte {
+	mac := hmac.New(md5.New, clientNTLMV2Hash)
+	mac.Write(generatedNTLMV2Response[:mac.Size()])
+	base := mac.Sum(nil)
+
+	//signingConst := "session key to client-to-server signing key magic constant.\x00" //what on earth was MS smoking
+	signingConst := []byte{0x73, 0x65, 0x73, 0x73, 0x69, 0x6f, 0x6e, 0x20, 0x6b, 0x65, 0x79, 0x20, 0x74, 0x6f, 0x20, 0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x2d, 0x74, 0x6f, 0x2d, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x20, 0x73, 0x69, 0x67, 0x6e, 0x69, 0x6e, 0x67, 0x20, 0x6b, 0x65, 0x79, 0x20, 0x6d, 0x61, 0x67, 0x69, 0x63, 0x20, 0x63, 0x6f, 0x6e, 0x73, 0x74, 0x61, 0x6e, 0x74, 0x00}
+	md5er := md5.New()
+	md5er.Write(append(base, signingConst...))
+	return md5er.Sum(nil)
 }

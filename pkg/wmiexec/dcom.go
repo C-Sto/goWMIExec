@@ -514,30 +514,6 @@ func (p PacketDCOMMemRelease) Bytes() []byte {
 	return buff.Bytes()
 }
 
-type DCOMResponse struct {
-	RPCHead  RPCHead
-	DCOMMeta DCOMMeta
-	Stub     []byte
-}
-
-type DCOMMeta struct {
-	AllocHint   uint32
-	ContextID   uint16
-	CancelCount uint8
-	Empty       byte
-}
-
-func NewDCOMResponse(b []byte) DCOMResponse {
-	r := DCOMResponse{}
-	br := bytes.NewReader(b)
-	binary.Read(br, binary.LittleEndian, &r.RPCHead)
-	binary.Read(br, binary.LittleEndian, &r.DCOMMeta)
-	r.Stub = make([]byte, br.Len())
-	br.Read(r.Stub)
-
-	return r
-}
-
 type DCOMOXIDResolver struct {
 	VersionMajor     uint16
 	VersionMinor     uint16
