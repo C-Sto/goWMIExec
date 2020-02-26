@@ -10,7 +10,9 @@ jobs:
     name: Upload Release Asset
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/setup-go@v1
+      - uses: actions/setup-go@v2-beta
+        with:
+          go-version: '1.x'
       - name: Set GOPATH
         # temporary fix
         # see https://github.com/actions/setup-go/issues/14
