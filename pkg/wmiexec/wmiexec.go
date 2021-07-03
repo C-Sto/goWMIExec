@@ -473,7 +473,7 @@ func (e *wmiExecer) Exec(command string) error {
 	for e.stage != "exit" {
 		if resp[2] == 3 {
 			pf := rpce.ParseFault(resp)
-			e.log.Errorf("Error: %s %x", pf.StatusString(), pf.Status)
+			e.log.Errorf("error: stage: %s call_id %d status: %s error code: %x", e.stage, callID, pf.StatusString(), pf.Status)
 			return errors.New(pf.StatusString())
 		}
 		switch e.stage {
@@ -532,6 +532,9 @@ func (e *wmiExecer) Exec(command string) error {
 
 				hnLen := uint32(len(s) + 1)
 				hnBytes := append([]byte(e.config.clientHostname), 0, 0)
+				//align to 4 bytes
+				align := make([]byte, len(hnBytes)%4)
+				hnBytes = append(hnBytes, align...)
 				type setClientInfo struct {
 					VersionMajor uint16
 					VersionMinor uint16
@@ -582,22 +585,23 @@ func (e *wmiExecer) Exec(command string) error {
 				contextID = 3
 				opNum = 6
 				rqUUID = e.ipid
-				writeName := e.targetHostname
-				if len(writeName)%2 == 1 {
-					//lol - I don't know where to pad this packet, so we insert an extra backslash here to make sure it rounds to the right amount... :/
-					writeName += "\\"
-				}
-				hnVal := fmt.Sprintf(`\\%s\root\cimv2`, writeName)
+
+				hnVal := fmt.Sprintf(`\\%s\ROOT\CIMV2`, e.targetHostname)
 				//hnVal := "\\\\" + e.targetHostname + "\\root\\cimv2"
 				wmiNameStr, err := toUnicodeS(hnVal)
 				if err != nil {
 					return err
 				}
 				wmiNameUni := []byte(wmiNameStr)
+				//append null
 				wmiNameUni = append(wmiNameUni, 0, 0)
-				hnLenByte := make([]byte, 4)
-				binary.LittleEndian.PutUint32(hnLenByte, uint32(len(hnVal)+1))
+				//pad to 4 byte alignment duh :-(
+				align := make([]byte, len(wmiNameUni)%4)
+				wmiNameUni = append(wmiNameUni, align...)
 
+				hnLenByte := make([]byte, 4)
+				//len + 1 for appended null (we don't appear to have to include padding here)
+				binary.LittleEndian.PutUint32(hnLenByte, uint32(len(hnVal)+1))
 				stubData = []byte{
 					0x05, 0x00, //version major
 					0x07, 0x00, //version minor
