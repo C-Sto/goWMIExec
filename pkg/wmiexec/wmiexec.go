@@ -37,6 +37,85 @@ type WmiExecConfig struct {
 	logger  *zap.Logger
 }
 
+func GetNetworkBindings(target string) (ret []string, err error) {
+
+	tcpClient, err := net.Dial("tcp", target)
+	if err != nil {
+		return nil, err
+	}
+
+	defer tcpClient.Close()
+
+	//Hello, please are you ok to connect?
+	//we seem to be using the iobjectexporter abstract syntax... whatever that means?
+	abs := rpce.NewPSyntaxID(uuid.IID_IObjectExporter, 0)
+
+	ctxList := rpce.NewPcontextList()
+	ctxList.AddContext( //I tried to make it neater... I failed :(
+		rpce.NewPcontextElem(
+			0,
+			abs,
+			[]rpce.PSyntaxID{
+				rpce.NewPSyntaxID(uuid.NDRTransferSyntax_V2, 2),
+			},
+		),
+	)
+
+	ctxList.AddContext( //I tried to make it neater... I failed :(
+		rpce.NewPcontextElem(
+			0,
+			abs,
+			[]rpce.PSyntaxID{
+				rpce.NewPSyntaxID(uuid.BindTimeFeatureReneg, 0x01000000),
+			},
+		),
+	)
+	packetRPC := rpce.NewBindReq(2, ctxList, nil)
+
+	recv := make([]byte, 2048)
+
+	tcpClient.Write(packetRPC.Bytes())
+	tcpClient.Read(recv)
+	recvHdr := rpce.CommonHead{}
+
+	binary.Read(bytes.NewReader(recv), binary.LittleEndian, &recvHdr)
+
+	if recvHdr.PacketType != 12 {
+		return nil, fmt.Errorf("Got an unexpected response. Wanted 12 (0x0c) got %d (%x)", recvHdr.PacketType, recvHdr.PacketType)
+	}
+
+	//cool, can we auth?
+	packetRPCReq := rpce.NewRequestReq(2, 0, 5, nil, nil)
+	tcpClient.Write(packetRPCReq.Bytes())
+
+	tcpClient.Read(recv)
+	if err != nil {
+		return nil, err
+	}
+
+	//	rsp := NewDCOMResponse(recv[:n])
+	recvHdr = rpce.CommonHead{}
+	readr := bytes.NewReader(recv)
+	binary.Read(readr, binary.LittleEndian, &recvHdr)
+	if recvHdr.PacketType != 2 {
+		return nil, fmt.Errorf("Got an unexpected response. Wanted 0x02 got %x", recvHdr.PacketType)
+	}
+	rsp := rpce.ParseResponse(recv)
+
+	resolved := NewDCOMOXIDResolver(rsp.StubData)
+
+	for _, x := range resolved.StringBindings {
+		//decode for output to user (this should probably be in main... whatever)
+		dcoder := unicode.UTF16(unicode.LittleEndian, unicode.IgnoreBOM).NewDecoder()
+		b, er := dcoder.Bytes(x.NetworkAddr)
+		if er != nil {
+			continue
+		}
+		ret = append(ret, string(b))
+	}
+	return
+}
+
 func NewExecConfig(username, password, hash, domain, target, clientHostname string, verbose bool, logger *zap.Logger, writer io.Writer) (WmiExecConfig, error) {
 	r := WmiExecConfig{}
 
@@ -113,97 +192,22 @@ func NewExecer(cfg *WmiExecConfig) *wmiExecer {
 	return &r
 }
 
-func (e *wmiExecer) Connect() error {
-	var err error
-
-	e.tcpClient, err = net.Dial("tcp", e.config.targetAddress)
-	if err != nil {
-		e.log.Error(err.Error())
-		return err
-	}
-
-	defer e.tcpClient.Close()
-
-	//Hello, please are you ok to connect?
-	//we seem to be using the iobjectexporter abstract syntax... whatever that means?
-	abs := rpce.NewPSyntaxID(uuid.IID_IObjectExporter, 0)
-
-	ctxList := rpce.NewPcontextList()
-	ctxList.AddContext( //I tried to make it neater... I failed :(
-		rpce.NewPcontextElem(
-			0,
-			abs,
-			[]rpce.PSyntaxID{
-				rpce.NewPSyntaxID(uuid.NDRTransferSyntax_V2, 2),
-			},
-		),
-	)
-
-	ctxList.AddContext( //I tried to make it neater... I failed :(
-		rpce.NewPcontextElem(
-			0,
-			abs,
-			[]rpce.PSyntaxID{
-				rpce.NewPSyntaxID(uuid.BindTimeFeatureReneg, 0x01000000),
-			},
-		),
-	)
-	packetRPC := rpce.NewBindReq(2, ctxList, nil)
-
-	recv := make([]byte, 2048)
-
-	e.tcpClient.Write(packetRPC.Bytes())
-	e.tcpClient.Read(recv)
-	recvHdr := rpce.CommonHead{}
-
-	binary.Read(bytes.NewReader(recv), binary.LittleEndian, &recvHdr)
-
-	if recvHdr.PacketType != 12 {
-		e.log.Info("No, can't connect soz lol")
-		return errors.New("Got an unexpected response. Wanted 12 (0x0c) got ")
-	}
-
-	//cool, can we auth?
-	packetRPCReq := rpce.NewRequestReq(2, 0, 5, nil, nil)
-	e.tcpClient.Write(packetRPCReq.Bytes())
-
-	e.tcpClient.Read(recv)
-	if err != nil {
-		e.log.Error("Error reading tcp thing")
-		return err
-	}
-
-	e.log.Info("Successfully connected to host and sent an RPC request packet")
-	//	rsp := NewDCOMResponse(recv[:n])
-	recvHdr = rpce.CommonHead{}
-	readr := bytes.NewReader(recv)
-	binary.Read(readr, binary.LittleEndian, &recvHdr)
-	if recvHdr.PacketType != 2 {
-		return fmt.Errorf("Got an unexpected response. Wanted 0x02 got %x", recvHdr.PacketType)
-	}
-	rsp := rpce.ParseResponse(recv)
-
-	resolved := NewDCOMOXIDResolver(rsp.StubData)
-
-	e.log.Infof("Resolved names, all network string bindings for host:")
-	for _, x := range resolved.StringBindings {
-		//decode for output to user (this should probably be in main... whatever)
-		dcoder := unicode.UTF16(unicode.LittleEndian, unicode.IgnoreBOM).NewDecoder()
-		b, er := dcoder.Bytes(x.NetworkAddr)
-		if er != nil {
-			e.log.Error(er.Error())
-			continue
+func (e *wmiExecer) SetTargetBinding(binding string) error {
+	if binding == "" {
+		e.log.Info("Getting network bindings from remote host")
+		targets, err := GetNetworkBindings(e.config.targetAddress)
+		if err != nil {
+			return err
 		}
-		e.log.Infof("\t%v", string(b)) //strs = append(strs, unicode.UTF16( // string(x.NetworkAddr))
+		e.log.Info("Resolved names, all network string bindings for host:")
+		for _, name := range targets {
+			e.log.Info("\t", name)
+		}
+		e.log.Info("Using first value as target hostname: ", targets[0])
+		e.targetHostname = targets[0]
+		return nil
 	}
-
-	b, err := unicode.UTF16(unicode.LittleEndian, unicode.IgnoreBOM).NewDecoder().Bytes(resolved.StringBindings[0].NetworkAddr)
-	if err != nil {
-		e.log.Error("Couldn't decode hostname from response")
-		return err
-	}
-	e.log.Info("Using first value as target hostname: ", string(b))
-	e.targetHostname = string(b)
+	e.targetHostname = binding
 	return nil
 }
 
@@ -313,6 +317,7 @@ func (e *wmiExecer) Auth() error {
 	}
 	portNum, err := strconv.Atoi(s)
 	if err != nil {
+		e.log.Error("Error getting rpc port (possibly binding not found in target auth createinstance response)")
 		return err
 	}
 	if portNum == 0 {
@@ -778,7 +783,7 @@ func (e *wmiExecer) Exec(command string) error {
 	return nil
 }
 
-func WMIExec(target, username, password, hash, domain, command, clientHostname string, cfgIn *WmiExecConfig) error {
+func WMIExec(target, username, password, hash, domain, command, clientHostname, binding string, cfgIn *WmiExecConfig) error {
 	if cfgIn == nil {
 		cfg, err := NewExecConfig(username, password, hash, domain, target, clientHostname, true, nil, nil)
 		if err != nil {
@@ -787,7 +792,7 @@ func WMIExec(target, username, password, hash, domain, command, clientHostname s
 		cfgIn = &cfg
 	}
 	execer := NewExecer(cfgIn)
-	err := execer.Connect()
+	err := execer.SetTargetBinding(binding)
 	if err != nil {
 		return err
 	}
