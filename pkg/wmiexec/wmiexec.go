@@ -473,7 +473,7 @@ func (e *wmiExecer) Exec(command string) error {
 	for e.stage != "exit" {
 		if resp[2] == 3 {
 			pf := rpce.ParseFault(resp)
-			e.log.Error("Error: ", pf.StatusString(), pf.Status)
+			e.log.Errorf("Error: %s %x", pf.StatusString(), pf.Status)
 			return errors.New(pf.StatusString())
 		}
 		switch e.stage {
@@ -550,6 +550,7 @@ func (e *wmiExecer) Exec(command string) error {
 					0, 0, 2, 0) // ??? reserved??
 				hnLenByte := make([]byte, 4)
 				binary.LittleEndian.PutUint32(hnLenByte, hnLen)
+				//e.log.Infof("hn len %d (%x)", hnLen, hnLenByte)
 				stubData = append(stubData, hnLenByte...) //32bit length (assume this is maxlen)
 				stubData = append(stubData, 0, 0, 0, 0)   //32 bit nulls (pointer to first value)
 				stubData = append(stubData, hnLenByte...) //32bit length (assume this is actuallen)
@@ -566,7 +567,12 @@ func (e *wmiExecer) Exec(command string) error {
 				callID = 4
 				contextID = 3
 				rqUUID = e.ipid
-				stubData = []byte{0x05, 0x00, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
+				stubData = []byte{
+					0x05, 0x00, //version major
+					0x07, 0x00, //version minor
+					0x00, 0x00, 0x00, 0x00, //flags
+					0x00, 0x00, 0x00, 0x00, //reserved
+				}
 				stubData = append(stubData, e.causality...)
 				stubData = append(stubData, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00)
 
@@ -576,17 +582,28 @@ func (e *wmiExecer) Exec(command string) error {
 				contextID = 3
 				opNum = 6
 				rqUUID = e.ipid
-				wminameLen := uint32(len(e.targetHostname) + 14)
-				hnLenByte := make([]byte, 4)
-				binary.LittleEndian.PutUint32(hnLenByte, wminameLen)
-				wmiNameStr, err := toUnicodeS("\\\\" + e.targetHostname + "\\root\\cimv2")
+				writeName := e.targetHostname
+				if len(writeName)%2 == 1 {
+					//lol - I don't know where to pad this packet, so we insert an extra backslash here to make sure it rounds to the right amount... :/
+					writeName += "\\"
+				}
+				hnVal := fmt.Sprintf(`\\%s\root\cimv2`, writeName)
+				//hnVal := "\\\\" + e.targetHostname + "\\root\\cimv2"
+				wmiNameStr, err := toUnicodeS(hnVal)
 				if err != nil {
 					return err
 				}
 				wmiNameUni := []byte(wmiNameStr)
 				wmiNameUni = append(wmiNameUni, 0, 0)
+				hnLenByte := make([]byte, 4)
+				binary.LittleEndian.PutUint32(hnLenByte, uint32(len(hnVal)+1))
 
-				stubData = []byte{0x05, 0x00, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
+				stubData = []byte{
+					0x05, 0x00, //version major
+					0x07, 0x00, //version minor
+					0x00, 0x00, 0x00, 0x00, //flags
+					0x00, 0x00, 0x00, 0x00, //reserved
+				}
 				stubData = append(stubData, e.causality...)
 				stubData = append(stubData, 0, 0, 0, 0, 0, 0, 2, 0)
 				stubData = append(stubData, hnLenByte...)
@@ -713,6 +730,9 @@ func (e *wmiExecer) Exec(command string) error {
 			authv.AuthValue = messagesig.Bytes()
 
 			wmiSend := packetRPC.Bytes()
+			// e.log.Infof("writing stub data (call id %d): %x", callID, packetRPC.StubData[16:])
+			// e.log.Infof("Parsed stub data: %+v", parseStub(packetRPC.StubData[16:]))
+			// e.log.Infof("unknown portion: (%d) %x", len(parseStub(packetRPC.StubData[16:]).Unknown), parseStub(packetRPC.StubData[16:]).Unknown)
 			e.tcpClient.Write(wmiSend)
 
 			//reads 16 bytes
