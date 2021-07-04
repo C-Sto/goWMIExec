@@ -18,7 +18,7 @@ func main() {
 	flag.StringVar(&password, "password", "", "password")
 	flag.StringVar(&hash, "hash", "", "hash")
 	flag.StringVar(&command, "command", "", "command")
-	flag.StringVar(&clientHost, "clientname", "", "")
+	flag.StringVar(&clientHost, "clientname", "", "Value to send the victim indicating client host")
 	flag.StringVar(&binding, "binding", "", "Value to use in network binding (see output of resolve mode for potential values)")
 	flag.BoolVar(&resolveOnly, "resolveonly", false, "Only resolve network bindings (does not require auth)")
 	flag.Parse()

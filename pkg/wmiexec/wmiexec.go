@@ -682,6 +682,9 @@ func (e *wmiExecer) Exec(command string) error {
 				opNum = 0x18
 				rqUUID = ipid2
 
+				commandBytes := []byte(command)
+				commandBytes = append(commandBytes, make([]byte, 4-(len(commandBytes)%4))...)
+
 				stubLen := uint16(len(command) + 1769)
 				stubLen2 := uint16(len(command) + 1727)
 				stubLen3 := uint16(len(command) + 1713)
@@ -699,13 +702,6 @@ func (e *wmiExecer) Exec(command string) error {
 				binary.LittleEndian.PutUint16(commLenB, commLen)
 				commLen2B := make([]byte, 2)
 				binary.LittleEndian.PutUint16(commLen2B, commLen2)
-
-				commandBytes := []byte(command)
-				if len(command)%4 == 0 {
-					commandBytes = append(commandBytes, 0, 0, 0, 0)
-				} else {
-					commandBytes = append(commandBytes, make([]byte, len(command)%4)...)
-				}
 
 				stubData = []byte{0x05, 0x00, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
 				stubData = append(stubData, e.causality...)
