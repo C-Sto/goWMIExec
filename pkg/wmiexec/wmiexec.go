@@ -28,6 +28,7 @@ import (
 
 var logger, logerr = zap.NewProduction()
 var sugar = logger.Sugar()
+var Timeout = 5
 
 type WmiExecConfig struct {
 	username, password, hash, domain string
@@ -39,11 +40,14 @@ type WmiExecConfig struct {
 
 func GetNetworkBindings(target string) (ret []string, err error) {
 
-	tcpClient, err := net.Dial("tcp", target)
+	tcpClient, err := net.DialTimeout("tcp", target, time.Duration(Timeout)*time.Second)
 	if err != nil {
 		return nil, err
 	}
-
+	err = tcpClient.SetReadDeadline(time.Now().Add(time.Duration(Timeout) * time.Second))
+	if err != nil {
+		return nil, err
+	}
 	defer tcpClient.Close()
 
 	//Hello, please are you ok to connect?
@@ -213,12 +217,15 @@ func (e *wmiExecer) SetTargetBinding(binding string) error {
 
 func (e *wmiExecer) Auth() error {
 	var err error
-	e.tcpClient, err = net.Dial("tcp", e.config.targetAddress)
+	e.tcpClient, err = net.DialTimeout("tcp", e.config.targetAddress, time.Duration(Timeout)*time.Second)
 	if err != nil {
 		return err
 	}
 	defer e.tcpClient.Close()
-
+	err = e.tcpClient.SetReadDeadline(time.Now().Add(time.Duration(Timeout) * time.Second))
+	if err != nil {
+		return err
+	}
 	//ey, can I please talk to SCM? I will use NTLM SSP to auth..
 	ctxList := rpce.NewPcontextList()
 	ctxList.AddContext(rpce.NewPcontextElem(
@@ -346,12 +353,15 @@ func (e *wmiExecer) RPCConnect() error {
 
 	//this is 'intentionally' left open (no deferred close!). This is the channel we send stuff on after RPC has been connected, so it needs to persist.
 	//I should probably determine a better way to make sure it closes gracefully. Alas.
-	e.tcpClient, err = net.Dial("tcp", fmt.Sprintf("%s:%d", e.config.targetAddress[:strings.Index(e.config.targetAddress, ":")], e.targetRPCPort))
+	e.tcpClient, err = net.DialTimeout("tcp", fmt.Sprintf("%s:%d", e.config.targetAddress[:strings.Index(e.config.targetAddress, ":")], e.targetRPCPort), time.Duration(Timeout)*time.Second)
 	if err != nil {
 		e.log.Error("Error: ", err.Error())
 		return err
 	}
-
+	err = e.tcpClient.SetReadDeadline(time.Now().Add(time.Duration(Timeout) * time.Second))
+	if err != nil {
+		return err
+	}
 	ctxList := rpce.NewPcontextList()
 	ctxList.AddContext(rpce.NewPcontextElem(
 		0,
@@ -799,6 +809,7 @@ func WMIExec(target, username, password, hash, domain, command, clientHostname, 
 	}
 
 	if command != "" {
+		command = "C:\\Windows\\system32\\cmd.exe /c " + command
 		if execer.targetRPCPort == 0 {
 			execer.log.Error("RPC Port is 0, cannot connect")
 			return errors.New("RPC Port is 0, cannot connect")
