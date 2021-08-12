@@ -173,7 +173,7 @@ type wmiExecer struct {
 	tcpClient net.Conn
 
 	targetHostname   string
-	targetRPCPort    int
+	TargetRPCPort    int
 	assGroup         uint32
 	objectUUID       []byte
 	causality        []byte
@@ -339,7 +339,7 @@ func (e *wmiExecer) Auth() error {
 	e.oxid = rsp.StubData[meowIndex+32 : meowIndex+40]
 	oxid2Index := bytes.Index(rsp.StubData[meowIndex+100:], e.oxid)
 	objUUID := rsp.StubData[meowIndex+100+oxid2Index+12 : meowIndex+100+oxid2Index+28]
-	e.targetRPCPort = portNum
+	e.TargetRPCPort = portNum
 	e.causality = cause_id_bytes[:]
 	e.ipid = ipid
 	e.objectUUID = objUUID
@@ -349,11 +349,11 @@ func (e *wmiExecer) Auth() error {
 
 func (e *wmiExecer) RPCConnect() error {
 	var err error
-	e.log.Infof("Connecting to %s:%d", e.config.targetAddress[:strings.Index(e.config.targetAddress, ":")], e.targetRPCPort)
+	e.log.Infof("Connecting to %s:%d", e.config.targetAddress[:strings.Index(e.config.targetAddress, ":")], e.TargetRPCPort)
 
 	//this is 'intentionally' left open (no deferred close!). This is the channel we send stuff on after RPC has been connected, so it needs to persist.
 	//I should probably determine a better way to make sure it closes gracefully. Alas.
-	e.tcpClient, err = net.DialTimeout("tcp", fmt.Sprintf("%s:%d", e.config.targetAddress[:strings.Index(e.config.targetAddress, ":")], e.targetRPCPort), time.Duration(Timeout)*time.Second)
+	e.tcpClient, err = net.DialTimeout("tcp", fmt.Sprintf("%s:%d", e.config.targetAddress[:strings.Index(e.config.targetAddress, ":")], e.TargetRPCPort), time.Duration(Timeout)*time.Second)
 	if err != nil {
 		e.log.Error("Error: ", err.Error())
 		return err
@@ -810,7 +810,7 @@ func WMIExec(target, username, password, hash, domain, command, clientHostname, 
 
 	if command != "" {
 		command = "C:\\Windows\\system32\\cmd.exe /c " + command
-		if execer.targetRPCPort == 0 {
+		if execer.TargetRPCPort == 0 {
 			execer.log.Error("RPC Port is 0, cannot connect")
 			return errors.New("RPC Port is 0, cannot connect")
 		}
