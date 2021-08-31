@@ -16,6 +16,7 @@ func main() {
 	flag.StringVar(&target, "target", "", "Target")
 	flag.StringVar(&username, "username", "", "Username to auth as")
 	flag.StringVar(&password, "password", "", "password")
+	flag.StringVar(&domain, "domain", "", "domain")
 	flag.StringVar(&hash, "hash", "", "hash")
 	flag.StringVar(&command, "command", "", "command")
 	flag.IntVar(&wmiexec.Timeout, "timeout", 5, "timeout")
