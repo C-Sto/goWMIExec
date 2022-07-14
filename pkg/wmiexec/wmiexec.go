@@ -28,6 +28,7 @@ import (
 
 var logger, logerr = zap.NewProduction()
 var sugar = logger.Sugar()
+var Timeout = 5
 
 type WmiExecConfig struct {
 	username, password, hash, domain string
@@ -39,11 +40,14 @@ type WmiExecConfig struct {
 
 func GetNetworkBindings(target string) (ret []string, err error) {
 
-	tcpClient, err := net.Dial("tcp", target)
+	tcpClient, err := net.DialTimeout("tcp", target, time.Duration(Timeout)*time.Second)
 	if err != nil {
 		return nil, err
 	}
-
+	err = tcpClient.SetReadDeadline(time.Now().Add(time.Duration(Timeout) * time.Second))
+	if err != nil {
+		return nil, err
+	}
 	defer tcpClient.Close()
 
 	//Hello, please are you ok to connect?
@@ -169,7 +173,7 @@ type wmiExecer struct {
 	tcpClient net.Conn
 
 	targetHostname   string
-	targetRPCPort    int
+	TargetRPCPort    int
 	assGroup         uint32
 	objectUUID       []byte
 	causality        []byte
@@ -194,16 +198,16 @@ func NewExecer(cfg *WmiExecConfig) *wmiExecer {
 
 func (e *wmiExecer) SetTargetBinding(binding string) error {
 	if binding == "" {
-		e.log.Info("Getting network bindings from remote host")
+		//e.log.Info("Getting network bindings from remote host")
 		targets, err := GetNetworkBindings(e.config.targetAddress)
 		if err != nil {
 			return err
 		}
-		e.log.Info("Resolved names, all network string bindings for host:")
-		for _, name := range targets {
-			e.log.Info("\t", name)
-		}
-		e.log.Info("Using first value as target hostname: ", targets[0])
+		//e.log.Info("Resolved names, all network string bindings for host:")
+		//for _, name := range targets {
+		//	e.log.Info("\t", name)
+		//}
+		//e.log.Info("Using first value as target hostname: ", targets[0])
 		e.targetHostname = targets[0]
 		return nil
 	}
@@ -213,12 +217,15 @@ func (e *wmiExecer) SetTargetBinding(binding string) error {
 
 func (e *wmiExecer) Auth() error {
 	var err error
-	e.tcpClient, err = net.Dial("tcp", e.config.targetAddress)
+	e.tcpClient, err = net.DialTimeout("tcp", e.config.targetAddress, time.Duration(Timeout)*time.Second)
 	if err != nil {
 		return err
 	}
 	defer e.tcpClient.Close()
-
+	err = e.tcpClient.SetReadDeadline(time.Now().Add(time.Duration(Timeout) * time.Second))
+	if err != nil {
+		return err
+	}
 	//ey, can I please talk to SCM? I will use NTLM SSP to auth..
 	ctxList := rpce.NewPcontextList()
 	ctxList.AddContext(rpce.NewPcontextElem(
@@ -332,7 +339,7 @@ func (e *wmiExecer) Auth() error {
 	e.oxid = rsp.StubData[meowIndex+32 : meowIndex+40]
 	oxid2Index := bytes.Index(rsp.StubData[meowIndex+100:], e.oxid)
 	objUUID := rsp.StubData[meowIndex+100+oxid2Index+12 : meowIndex+100+oxid2Index+28]
-	e.targetRPCPort = portNum
+	e.TargetRPCPort = portNum
 	e.causality = cause_id_bytes[:]
 	e.ipid = ipid
 	e.objectUUID = objUUID
@@ -342,16 +349,19 @@ func (e *wmiExecer) Auth() error {
 
 func (e *wmiExecer) RPCConnect() error {
 	var err error
-	e.log.Infof("Connecting to %s:%d", e.config.targetAddress[:strings.Index(e.config.targetAddress, ":")], e.targetRPCPort)
+	e.log.Infof("Connecting to %s:%d", e.config.targetAddress[:strings.Index(e.config.targetAddress, ":")], e.TargetRPCPort)
 
 	//this is 'intentionally' left open (no deferred close!). This is the channel we send stuff on after RPC has been connected, so it needs to persist.
 	//I should probably determine a better way to make sure it closes gracefully. Alas.
-	e.tcpClient, err = net.Dial("tcp", fmt.Sprintf("%s:%d", e.config.targetAddress[:strings.Index(e.config.targetAddress, ":")], e.targetRPCPort))
+	e.tcpClient, err = net.DialTimeout("tcp", fmt.Sprintf("%s:%d", e.config.targetAddress[:strings.Index(e.config.targetAddress, ":")], e.TargetRPCPort), time.Duration(Timeout)*time.Second)
 	if err != nil {
 		e.log.Error("Error: ", err.Error())
 		return err
 	}
-
+	err = e.tcpClient.SetReadDeadline(time.Now().Add(time.Duration(Timeout) * time.Second))
+	if err != nil {
+		return err
+	}
 	ctxList := rpce.NewPcontextList()
 	ctxList.AddContext(rpce.NewPcontextElem(
 		0,
@@ -799,7 +809,8 @@ func WMIExec(target, username, password, hash, domain, command, clientHostname, 
 	}
 
 	if command != "" {
-		if execer.targetRPCPort == 0 {
+		command = "C:\\Windows\\system32\\cmd.exe /c " + command
+		if execer.TargetRPCPort == 0 {
 			execer.log.Error("RPC Port is 0, cannot connect")
 			return errors.New("RPC Port is 0, cannot connect")
 		}
