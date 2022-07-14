@@ -198,16 +198,16 @@ func NewExecer(cfg *WmiExecConfig) *wmiExecer {
 
 func (e *wmiExecer) SetTargetBinding(binding string) error {
 	if binding == "" {
-		e.log.Info("Getting network bindings from remote host")
+		//e.log.Info("Getting network bindings from remote host")
 		targets, err := GetNetworkBindings(e.config.targetAddress)
 		if err != nil {
 			return err
 		}
-		e.log.Info("Resolved names, all network string bindings for host:")
-		for _, name := range targets {
-			e.log.Info("\t", name)
-		}
-		e.log.Info("Using first value as target hostname: ", targets[0])
+		//e.log.Info("Resolved names, all network string bindings for host:")
+		//for _, name := range targets {
+		//	e.log.Info("\t", name)
+		//}
+		//e.log.Info("Using first value as target hostname: ", targets[0])
 		e.targetHostname = targets[0]
 		return nil
 	}
